@@ -1,0 +1,587 @@
+EXPERIMENT 10 — SYSTEM LOG ANALYSIS USING journalctl AND auditd
+QUICK PRACTICAL GUIDE
+
+Aim: Analyse system logs to detect suspicious activity and generate an audit report using auditd / journalctl.
+
+============================================================
+IMPORTANT BEFORE STARTING
+============================================================
+
+You need a LINUX environment.
+
+If the lab PC has:
+1. Kali Linux VM -> Open Kali -> Terminal.
+2. Kali Linux installed directly -> Open Terminal.
+3. Windows + WSL Kali -> Open "Kali Linux" / WSL terminal.
+4. Only Windows CMD/PowerShell with NO Kali/WSL/VM -> these Linux commands will NOT work directly. Ask the faculty which Linux environment to use.
+
+Your prompt may look different. That is okay.
+
+Example Kali VM:
+┌──(kali㉿kali)-[~]
+└─$
+
+Example WSL:
+kali@PC:~$
+
+Run commands ONE BY ONE.
+
+
+============================================================
+STEP 1 — CHECK THAT YOU ARE IN LINUX
+============================================================
+
+COMMAND:
+whoami
+
+EXPECT:
+Your username, for example:
+kali
+
+
+COMMAND:
+uname -a
+
+EXPECT:
+A line containing "Linux".
+
+If uname is not recognized and you are in Windows CMD/PowerShell, STOP.
+You are not inside the required Linux environment.
+
+
+============================================================
+STEP 2 — CHECK INTERNET
+============================================================
+
+COMMAND:
+ping -c 3 google.com
+
+EXPECT:
+3 replies and something similar to:
+3 packets transmitted, 3 received
+
+If internet is unavailable, auditd may already be installed.
+Continue to Step 3 and check first.
+
+
+============================================================
+STEP 3 — CHECK WHETHER auditd IS ALREADY INSTALLED
+============================================================
+
+COMMAND:
+which auditctl
+
+EXPECT:
+Something like:
+/usr/sbin/auditctl
+
+If a path appears -> auditd tools exist. Go to Step 5.
+
+If NOTHING appears -> install auditd in Step 4.
+
+
+============================================================
+STEP 4 — INSTALL auditd (ONLY IF NEEDED)
+============================================================
+
+COMMAND:
+sudo apt update
+
+EXPECT:
+Package information downloads.
+It may say some packages can be upgraded. Ignore that.
+
+
+COMMAND:
+sudo apt install auditd audispd-plugins -y
+
+EXPECT:
+auditd and related packages install successfully.
+
+NOTE:
+When sudo asks for your password, type it and press Enter.
+Linux does NOT display stars/dots while you type the password.
+
+
+============================================================
+STEP 5 — START auditd
+============================================================
+
+COMMAND:
+sudo systemctl start auditd
+
+EXPECT:
+Usually NO output. That means it probably worked.
+
+
+COMMAND:
+sudo systemctl status auditd
+
+EXPECT:
+Look for:
+Active: active (running)
+
+If the status screen stays open, press:
+q
+
+SCREENSHOT:
+Take a screenshot showing "Active: active (running)".
+
+
+============================================================
+IF systemctl DOES NOT WORK
+============================================================
+
+This can happen especially in some WSL installations.
+
+Try:
+
+sudo service auditd start
+
+Then:
+
+sudo service auditd status
+
+If auditd still cannot start because the Linux audit subsystem/systemd is unavailable,
+tell the faculty that the provided WSL environment does not support the required auditd setup.
+A normal Kali VM is preferable for this experiment.
+
+
+============================================================
+STEP 6 — VERIFY AUDITING
+============================================================
+
+COMMAND:
+sudo auditctl -s
+
+EXPECT:
+Several lines.
+
+Important:
+enabled 1
+
+If earlier it showed "enabled 0" but you have now started auditd, run the command again.
+
+
+============================================================
+STEP 7 — VIEW RECENT SYSTEM LOGS
+============================================================
+
+COMMAND:
+sudo journalctl -n 20
+
+EXPECT:
+20 recent system log entries with dates, times, services, etc.
+
+Example:
+Oct 05 ... systemd...
+Oct 05 ... sudo...
+
+SCREENSHOT:
+Take a screenshot of the recent logs.
+
+NOTE:
+If journalctl opens a viewer, press q to exit.
+
+DO NOT type:
+lines 1-20/20
+
+"lines 1-20/20" is only information displayed by the viewer. It is NOT a command.
+
+
+============================================================
+STEP 8 — CREATE A FAILED AUTHENTICATION ATTEMPT
+============================================================
+
+COMMAND:
+sudo -k
+
+EXPECT:
+Usually no output.
+
+
+COMMAND:
+sudo whoami
+
+EXPECT:
+[sudo] password for <username>:
+
+Enter a WRONG password once.
+
+EXPECT:
+Sorry, try again.
+
+When it asks again, enter the CORRECT password.
+
+EXPECT:
+root
+
+
+============================================================
+STEP 9 — FIND THE FAILED AUTHENTICATION IN journalctl
+============================================================
+
+COMMAND:
+sudo journalctl | grep -i "authentication failure"
+
+EXPECT:
+A line similar to:
+pam_unix(sudo:auth): authentication failure
+
+SCREENSHOT:
+Take a screenshot showing the authentication failure.
+
+If nothing appears, try:
+
+sudo journalctl | grep -i sudo | tail -20
+
+
+============================================================
+STEP 10 — CREATE A TEST FILE
+============================================================
+
+COMMAND:
+touch ~/important.txt
+
+EXPECT:
+No output.
+
+
+COMMAND:
+ls -l ~/important.txt
+
+EXPECT:
+A line showing important.txt.
+
+
+COMMAND:
+echo "This is a confidential file" > ~/important.txt
+
+EXPECT:
+No output.
+
+
+COMMAND:
+cat ~/important.txt
+
+EXPECT:
+This is a confidential file
+
+
+============================================================
+STEP 11 — MAKE auditd WATCH THE FILE
+============================================================
+
+COMMAND:
+sudo auditctl -w "$HOME/important.txt" -p wa -k suspicious_file
+
+EXPECT:
+Possibly:
+Old style watch rules are slower
+
+THIS IS NOT AN ERROR.
+
+
+COMMAND:
+sudo auditctl -l
+
+EXPECT:
+A rule similar to:
+-w /home/kali/important.txt -p wa -k suspicious_file
+
+Your username/path may be different.
+
+SCREENSHOT:
+Take a screenshot showing the audit rule.
+
+
+============================================================
+STEP 12 — GENERATE SUSPICIOUS FILE ACTIVITY
+============================================================
+
+COMMAND:
+echo "HACKED - file modified" >> ~/important.txt
+
+EXPECT:
+No output.
+
+
+COMMAND:
+cat ~/important.txt
+
+EXPECT:
+This is a confidential file
+HACKED - file modified
+
+
+COMMAND:
+chmod 777 ~/important.txt
+
+EXPECT:
+No output.
+
+We changed the file permissions after auditd started watching it.
+
+
+============================================================
+STEP 13 — SEARCH THE AUDIT LOG
+============================================================
+
+COMMAND:
+sudo ausearch -k suspicious_file -i
+
+EXPECT:
+Multiple audit records.
+
+Look for lines containing things such as:
+
+proctitle=chmod 777 /home/.../important.txt
+
+name=/home/.../important.txt
+
+success=yes
+
+comm=chmod
+
+exe=/usr/bin/chmod
+
+key=suspicious_file
+
+SCREENSHOT:
+Take a screenshot showing important.txt and/or chmod.
+
+If the output is too large:
+
+sudo ausearch -k suspicious_file -i | tail -30
+
+
+============================================================
+STEP 14 — GENERATE THE AUDIT SUMMARY
+============================================================
+
+COMMAND:
+sudo aureport
+
+EXPECT:
+
+Summary Report
+======================
+...
+Number of authentications: ...
+Number of failed authentications: ...
+Number of users: ...
+Number of files: ...
+Number of events: ...
+
+SCREENSHOT:
+Take a screenshot of this summary.
+
+
+============================================================
+STEP 15 — DISPLAY FAILED EVENTS SUMMARY
+============================================================
+
+COMMAND:
+sudo aureport --failed
+
+EXPECT:
+
+Failed Summary Report
+======================
+...
+
+After the deliberately wrong sudo password, you may see:
+Number of failed authentications: 1
+
+It is okay if exact numbers differ.
+
+
+============================================================
+STEP 16 — CREATE THE REQUIRED REPORT FILES
+============================================================
+
+COMMAND:
+sudo ausearch -k suspicious_file -i > audit_report.txt
+
+EXPECT:
+No output. The output has been redirected into the file.
+
+
+COMMAND:
+ls -l audit_report.txt
+
+EXPECT:
+A line showing audit_report.txt and its size.
+
+
+COMMAND:
+cat audit_report.txt
+
+EXPECT:
+The audit records for suspicious_file.
+
+
+COMMAND:
+sudo aureport > system_audit_report.txt
+
+EXPECT:
+No output.
+
+
+COMMAND:
+cat system_audit_report.txt
+
+EXPECT:
+The Summary Report.
+
+
+============================================================
+STEP 17 — VERIFY BOTH REPORT FILES
+============================================================
+
+COMMAND:
+ls -l *report.txt
+
+EXPECT:
+Two files:
+
+audit_report.txt
+system_audit_report.txt
+
+SCREENSHOT:
+Take a screenshot showing both files.
+
+
+============================================================
+FINAL CHECK — WHAT YOU SHOULD HAVE DEMONSTRATED
+============================================================
+
+[ ] auditd installed
+[ ] auditd active/running
+[ ] journalctl displayed system logs
+[ ] wrong sudo password generated an authentication failure
+[ ] journalctl detected the authentication failure
+[ ] important.txt created
+[ ] audit rule added for important.txt
+[ ] important.txt modified
+[ ] permissions changed using chmod
+[ ] ausearch detected the monitored activity
+[ ] aureport generated a summary
+[ ] failed-event report checked
+[ ] audit_report.txt created
+[ ] system_audit_report.txt created
+
+
+============================================================
+MOST IMPORTANT COMMANDS — EMERGENCY CHEAT SHEET
+============================================================
+
+whoami
+uname -a
+
+which auditctl
+
+sudo apt update
+sudo apt install auditd audispd-plugins -y
+
+sudo systemctl start auditd
+sudo systemctl status auditd
+sudo auditctl -s
+
+sudo journalctl -n 20
+
+sudo -k
+sudo whoami
+# Enter one WRONG password, then the correct password.
+
+sudo journalctl | grep -i "authentication failure"
+
+touch ~/important.txt
+echo "This is a confidential file" > ~/important.txt
+cat ~/important.txt
+
+sudo auditctl -w "$HOME/important.txt" -p wa -k suspicious_file
+sudo auditctl -l
+
+echo "HACKED - file modified" >> ~/important.txt
+chmod 777 ~/important.txt
+
+sudo ausearch -k suspicious_file -i
+sudo aureport
+sudo aureport --failed
+
+sudo ausearch -k suspicious_file -i > audit_report.txt
+sudo aureport > system_audit_report.txt
+
+cat audit_report.txt
+cat system_audit_report.txt
+ls -l *report.txt
+
+
+============================================================
+COMMON ERRORS
+============================================================
+
+ERROR:
+You must be root to run this program.
+
+FIX:
+Put sudo before the command.
+Example:
+sudo auditctl -s
+
+
+ERROR:
+auditctl: command not found
+
+FIX:
+sudo apt update
+sudo apt install auditd audispd-plugins -y
+
+
+ERROR:
+Old style watch rules are slower
+
+FIX:
+Nothing. It is a warning, not a failure.
+
+
+ERROR:
+lines: command not found
+
+FIX:
+Do not type "lines 1-20/20".
+If journalctl shows that text at the bottom, press q.
+
+
+ERROR:
+systemctl does not work / system has not been booted with systemd
+
+FIX:
+You may be using WSL without systemd support.
+Try:
+sudo service auditd start
+sudo service auditd status
+
+If auditd cannot operate in the provided WSL environment, use the Kali VM/environment supplied by the lab.
+
+
+ERROR:
+ausearch shows no matches
+
+CHECK:
+sudo auditctl -l
+
+You should see the suspicious_file rule.
+
+Then modify the file AGAIN:
+echo "Another modification" >> ~/important.txt
+chmod 700 ~/important.txt
+
+Then retry:
+sudo ausearch -k suspicious_file -i
+
+
+============================================================
+END OF EXPERIMENT 10 QUICK GUIDE
+============================================================
