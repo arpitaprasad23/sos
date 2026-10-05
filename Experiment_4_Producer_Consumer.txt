@@ -1,0 +1,437 @@
+EXPERIMENT 4 — PRODUCER-CONSUMER PROCESS SYNCHRONIZATION (LAB-READY)
+
+Aim:
+Implement process synchronization using the Producer-Consumer Problem.
+
+This program uses:
+- Shared Memory
+- POSIX Semaphores
+- Producer and Consumer processes
+- fork()
+- A bounded buffer of size 5
+
+IMPORTANT:
+This experiment is self-contained. You can perform it on a fresh Kali lab PC.
+You do NOT need to have completed any previous experiment.
+
+============================================================
+STEP 1 — CREATE THE C FILE
+============================================================
+
+Open Terminal and type:
+
+nano exp4.c
+
+Paste this program:
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <semaphore.h>
+
+#define BUFFER_SIZE 5
+
+// Shared buffer structure
+struct shared_data
+{
+    int buffer[BUFFER_SIZE];
+    int in;
+    int out;
+
+    sem_t empty;
+    sem_t full;
+    sem_t mutex;
+};
+
+int main()
+{
+    int shmid;
+    struct shared_data *shared;
+
+    // Create shared memory
+    shmid = shmget(IPC_PRIVATE,
+                   sizeof(struct shared_data),
+                   IPC_CREAT | 0666);
+
+    if (shmid == -1)
+    {
+        perror("shmget failed");
+        return 1;
+    }
+
+    // Attach shared memory
+    shared = (struct shared_data *)shmat(shmid, NULL, 0);
+
+    if (shared == (void *)-1)
+    {
+        perror("shmat failed");
+        return 1;
+    }
+
+    // Initialize variables
+    shared->in = 0;
+    shared->out = 0;
+
+    // empty = number of empty spaces
+    sem_init(&shared->empty, 1, BUFFER_SIZE);
+
+    // full = number of filled spaces
+    sem_init(&shared->full, 1, 0);
+
+    // mutex = controls access to buffer
+    sem_init(&shared->mutex, 1, 1);
+
+    pid_t producer, consumer;
+
+    // Create producer process
+    producer = fork();
+
+    if (producer == -1)
+    {
+        perror("fork failed");
+        return 1;
+    }
+
+    if (producer == 0)
+    {
+        // Producer process
+        for (int i = 1; i <= 10; i++)
+        {
+            // Wait for an empty slot
+            sem_wait(&shared->empty);
+
+            // Enter critical section
+            sem_wait(&shared->mutex);
+
+            shared->buffer[shared->in] = i;
+
+            printf("Producer produced: %d\n", i);
+            fflush(stdout);
+
+            shared->in =
+                (shared->in + 1) % BUFFER_SIZE;
+
+            // Leave critical section
+            sem_post(&shared->mutex);
+
+            // Increase full count
+            sem_post(&shared->full);
+
+            sleep(1);
+        }
+
+        exit(0);
+    }
+
+    // Create consumer process
+    consumer = fork();
+
+    if (consumer == -1)
+    {
+        perror("fork failed");
+        return 1;
+    }
+
+    if (consumer == 0)
+    {
+        // Consumer process
+        for (int i = 1; i <= 10; i++)
+        {
+            // Wait for an available item
+            sem_wait(&shared->full);
+
+            // Enter critical section
+            sem_wait(&shared->mutex);
+
+            int item = shared->buffer[shared->out];
+
+            printf("Consumer consumed: %d\n", item);
+            fflush(stdout);
+
+            shared->out =
+                (shared->out + 1) % BUFFER_SIZE;
+
+            // Leave critical section
+            sem_post(&shared->mutex);
+
+            // Increase empty count
+            sem_post(&shared->empty);
+
+            sleep(2);
+        }
+
+        exit(0);
+    }
+
+    // Parent waits for both processes
+    wait(NULL);
+    wait(NULL);
+
+    // Destroy semaphores
+    sem_destroy(&shared->empty);
+    sem_destroy(&shared->full);
+    sem_destroy(&shared->mutex);
+
+    // Detach shared memory
+    shmdt(shared);
+
+    // Remove shared memory
+    shmctl(shmid, IPC_RMID, NULL);
+
+    printf("\nProducer-Consumer execution completed.\n");
+
+    return 0;
+}
+
+SAVE THE FILE:
+
+Ctrl + O
+Enter
+Ctrl + X
+
+============================================================
+STEP 2 — COMPILE
+============================================================
+
+gcc exp4.c -o exp4 -pthread
+
+IMPORTANT:
+Use -pthread because the program uses POSIX semaphores.
+
+If the terminal returns to the prompt without an error,
+the program compiled successfully.
+
+============================================================
+STEP 3 — RUN
+============================================================
+
+./exp4
+
+You should see Producer and Consumer messages.
+
+Example:
+
+Producer produced: 1
+Consumer consumed: 1
+Producer produced: 2
+Consumer consumed: 2
+Producer produced: 3
+Producer produced: 4
+Producer produced: 5
+Consumer consumed: 3
+...
+
+Eventually BOTH should reach 10:
+
+Producer produced: 10
+...
+Consumer consumed: 10
+
+Producer-Consumer execution completed.
+
+IMPORTANT:
+The exact order/interleaving can vary slightly between runs.
+That is normal because producer and consumer are separate processes.
+
+============================================================
+WHAT IS HAPPENING?
+============================================================
+
+PRODUCER:
+Creates items and places them into the shared buffer.
+
+CONSUMER:
+Removes items from the shared buffer.
+
+BUFFER_SIZE = 5:
+The shared buffer can hold a maximum of 5 items at a time.
+
+The producer produces numbers 1 to 10.
+The consumer consumes those numbers.
+
+The producer uses sleep(1), while the consumer uses sleep(2).
+Therefore the producer is faster and may produce multiple items before
+the consumer catches up.
+
+============================================================
+THE THREE SEMAPHORES
+============================================================
+
+1. empty
+
+Initial value = BUFFER_SIZE = 5
+
+It represents the number of EMPTY positions in the buffer.
+
+Producer executes:
+
+sem_wait(&shared->empty);
+
+before inserting an item.
+
+If the buffer is completely full, the producer must wait.
+
+
+2. full
+
+Initial value = 0
+
+It represents the number of FILLED positions in the buffer.
+
+Consumer executes:
+
+sem_wait(&shared->full);
+
+before consuming an item.
+
+If there is nothing in the buffer, the consumer must wait.
+
+
+3. mutex
+
+Initial value = 1
+
+It provides mutual exclusion.
+
+Only one process should access the critical section of the shared
+buffer at a time.
+
+Before accessing the buffer:
+
+sem_wait(&shared->mutex);
+
+After accessing the buffer:
+
+sem_post(&shared->mutex);
+
+============================================================
+SHARED MEMORY
+============================================================
+
+shmget()
+
+Creates the shared memory segment.
+
+shmat()
+
+Attaches the shared memory segment to the process.
+
+shmdt()
+
+Detaches the shared memory.
+
+shmctl(... IPC_RMID ...)
+
+Removes the shared memory segment after execution.
+
+Shared memory is necessary because producer and consumer are separate
+processes but need to access the same buffer and semaphore data.
+
+============================================================
+fork()
+============================================================
+
+fork() creates a new process.
+
+The program creates:
+- Producer process
+- Consumer process
+
+The parent process waits for both using:
+
+wait(NULL);
+wait(NULL);
+
+After both finish, the parent cleans up the semaphores and shared memory.
+
+============================================================
+WHY SYNCHRONIZATION IS REQUIRED
+============================================================
+
+Without synchronization:
+
+- Producer could try to insert into a full buffer.
+- Consumer could try to remove from an empty buffer.
+- Producer and consumer could access shared data simultaneously.
+- Race conditions and incorrect results could occur.
+
+Semaphores coordinate the processes and protect the critical section.
+
+============================================================
+QUICK LAB VERSION
+============================================================
+
+1. Create:
+
+nano exp4.c
+
+2. Paste the complete program.
+
+3. Save:
+
+Ctrl + O
+Enter
+Ctrl + X
+
+4. Compile:
+
+gcc exp4.c -o exp4 -pthread
+
+5. Run:
+
+./exp4
+
+6. Check:
+
+Producer produces 1 to 10.
+Consumer consumes 1 to 10.
+
+Final line:
+
+Producer-Consumer execution completed.
+
+============================================================
+IF SOMETHING GOES WRONG
+============================================================
+
+If gcc is not installed:
+
+sudo apt update
+sudo apt install build-essential
+
+If compilation gives an error:
+Open the file again:
+
+nano exp4.c
+
+Check whether the complete code was pasted correctly.
+
+If you accidentally close Terminal:
+Nothing is ruined.
+
+Open a new Terminal.
+
+If exp4.c is still in your home directory:
+
+ls
+
+Then compile/run again:
+
+gcc exp4.c -o exp4 -pthread
+./exp4
+
+If the executable already exists, you can simply run:
+
+./exp4
+
+============================================================
+RESULT
+============================================================
+
+The Producer-Consumer Problem was successfully implemented using shared
+memory and semaphores, demonstrating process synchronization and mutual
+exclusion in Linux.
