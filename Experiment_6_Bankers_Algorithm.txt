@@ -1,0 +1,414 @@
+EXPERIMENT 6 - BANKER'S ALGORITHM
+==================================
+
+TITLE:
+Write a program to demonstrate the concept of deadlock avoidance through Banker's Algorithm.
+
+IMPORTANT:
+This guide assumes you may get a completely fresh Kali Linux PC in the lab.
+Do NOT assume anything from Experiments 7, 8, 9, or 10 has already been done.
+
+============================================================
+PART 1 - CHECK COMPILER
+============================================================
+
+Open Terminal.
+
+Check whether GCC is available:
+
+gcc --version
+
+If GCC is not installed:
+
+sudo apt update
+sudo apt install gcc -y
+
+============================================================
+PART 2 - CREATE THE C PROGRAM
+============================================================
+
+Create the file:
+
+nano banker.c
+
+Paste the following code:
+
+#include <stdio.h>
+
+int main() {
+    int n = 5;  // Number of processes
+    int m = 3;  // Number of resources
+
+    int allocation[5][3] = {
+        {0, 1, 0},
+        {2, 0, 0},
+        {3, 0, 2},
+        {2, 1, 1},
+        {0, 0, 2}
+    };
+
+    int max[5][3] = {
+        {7, 5, 3},
+        {3, 2, 2},
+        {9, 0, 2},
+        {2, 2, 2},
+        {4, 3, 3}
+    };
+
+    int available[3] = {3, 3, 2};
+
+    int need[5][3];
+    int finish[5] = {0};
+    int safeSeq[5];
+    int work[3];
+
+    // Calculate Need matrix
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < m; j++) {
+            need[i][j] = max[i][j] - allocation[i][j];
+        }
+    }
+
+    printf("Need Matrix:\n");
+    for (int i = 0; i < n; i++) {
+        printf("P%d: ", i);
+        for (int j = 0; j < m; j++) {
+            printf("%d ", need[i][j]);
+        }
+        printf("\n");
+    }
+
+    // Copy available resources into work
+    for (int j = 0; j < m; j++) {
+        work[j] = available[j];
+    }
+
+    int count = 0;
+
+    while (count < n) {
+        int found = 0;
+
+        for (int i = 0; i < n; i++) {
+            if (!finish[i]) {
+                int j;
+
+                for (j = 0; j < m; j++) {
+                    if (need[i][j] > work[j])
+                        break;
+                }
+
+                if (j == m) {
+                    for (int k = 0; k < m; k++)
+                        work[k] += allocation[i][k];
+
+                    safeSeq[count++] = i;
+                    finish[i] = 1;
+                    found = 1;
+                }
+            }
+        }
+
+        if (!found) {
+            printf("\nSystem is NOT in a safe state.\n");
+            return 0;
+        }
+    }
+
+    printf("\nSystem is in a SAFE state.\n");
+    printf("Safe sequence: ");
+
+    for (int i = 0; i < n; i++) {
+        printf("P%d", safeSeq[i]);
+
+        if (i != n - 1)
+            printf(" -> ");
+    }
+
+    printf("\n");
+
+    return 0;
+}
+
+SAVE AND EXIT NANO:
+
+Ctrl + O
+Press Enter
+Ctrl + X
+
+============================================================
+PART 3 - COMPILE
+============================================================
+
+Compile:
+
+gcc banker.c -o banker
+
+If there is no output/error, compilation was successful.
+
+Optional check:
+
+ls -l banker
+
+============================================================
+PART 4 - RUN
+============================================================
+
+Run:
+
+./banker
+
+EXPECTED OUTPUT:
+
+Need Matrix:
+P0: 7 4 3
+P1: 1 2 2
+P2: 6 0 0
+P3: 0 1 1
+P4: 4 3 1
+
+System is in a SAFE state.
+Safe sequence: P1 -> P3 -> P4 -> P0 -> P2
+
+============================================================
+UNDERSTANDING THE CALCULATION
+============================================================
+
+MAIN FORMULA:
+
+Need = Max - Allocation
+
+Example for P0:
+
+Max        = 7 5 3
+Allocation = 0 1 0
+------------------
+Need       = 7 4 3
+
+Similarly:
+
+P1:
+3 2 2 - 2 0 0 = 1 2 2
+
+P2:
+9 0 2 - 3 0 2 = 6 0 0
+
+P3:
+2 2 2 - 2 1 1 = 0 1 1
+
+P4:
+4 3 3 - 0 0 2 = 4 3 1
+
+Therefore the Need Matrix is:
+
+P0 = 7 4 3
+P1 = 1 2 2
+P2 = 6 0 0
+P3 = 0 1 1
+P4 = 4 3 1
+
+============================================================
+HOW THE SAFE SEQUENCE IS FOUND
+============================================================
+
+Initial Available / Work:
+
+(3, 3, 2)
+
+A process can execute when:
+
+Need <= Work
+
+for ALL resource types.
+
+STEP 1: P1
+
+Need(P1) = (1,2,2)
+
+(1,2,2) <= (3,3,2)
+
+Therefore P1 can finish.
+
+P1 releases its Allocation:
+
+Allocation(P1) = (2,0,0)
+
+New Work:
+
+(3,3,2) + (2,0,0) = (5,3,2)
+
+STEP 2: P3
+
+Need(P3) = (0,1,1)
+
+(0,1,1) <= (5,3,2)
+
+P3 finishes and releases:
+
+Allocation(P3) = (2,1,1)
+
+New Work:
+
+(5,3,2) + (2,1,1) = (7,4,3)
+
+STEP 3: P4
+
+Need(P4) = (4,3,1)
+
+(4,3,1) <= (7,4,3)
+
+P4 finishes and releases:
+
+Allocation(P4) = (0,0,2)
+
+New Work:
+
+(7,4,3) + (0,0,2) = (7,4,5)
+
+STEP 4: P0
+
+Need(P0) = (7,4,3)
+
+(7,4,3) <= (7,4,5)
+
+P0 finishes and releases:
+
+Allocation(P0) = (0,1,0)
+
+New Work:
+
+(7,4,5) + (0,1,0) = (7,5,5)
+
+STEP 5: P2
+
+Need(P2) = (6,0,0)
+
+(6,0,0) <= (7,5,5)
+
+P2 can finish.
+
+Therefore:
+
+SAFE SEQUENCE:
+P1 -> P3 -> P4 -> P0 -> P2
+
+============================================================
+IMPORTANT TERMS
+============================================================
+
+ALLOCATION:
+Resources currently allocated to each process.
+
+MAX:
+Maximum resources that a process may require.
+
+AVAILABLE:
+Resources currently available in the system.
+
+NEED:
+Resources a process may still require to finish.
+
+Need = Max - Allocation
+
+WORK:
+Temporary vector used by the safety algorithm to simulate the currently
+available resources.
+
+FINISH:
+Indicates whether a process can successfully complete.
+
+SAFE STATE:
+A state where at least one safe sequence exists in which every process
+can complete.
+
+UNSAFE STATE:
+No safe sequence can be found. An unsafe state does not necessarily mean
+deadlock has already occurred, but it may lead to deadlock.
+
+BANKER'S ALGORITHM:
+A deadlock-avoidance algorithm. Before allocating resources, the system
+checks whether the allocation will leave the system in a safe state.
+
+============================================================
+QUICK LAB VERSION
+============================================================
+
+1. Open terminal.
+
+2. Check GCC:
+   gcc --version
+
+3. If missing:
+   sudo apt update
+   sudo apt install gcc -y
+
+4. Create program:
+   nano banker.c
+
+5. Paste the program.
+
+6. Save:
+   Ctrl + O
+   Enter
+   Ctrl + X
+
+7. Compile:
+   gcc banker.c -o banker
+
+8. Run:
+   ./banker
+
+9. Show the examiner:
+   - Need Matrix
+   - "System is in a SAFE state"
+   - Safe sequence:
+     P1 -> P3 -> P4 -> P0 -> P2
+
+============================================================
+IF SOMETHING GOES WRONG
+============================================================
+
+If:
+gcc: command not found
+
+Run:
+sudo apt update
+sudo apt install gcc -y
+
+
+If:
+banker.c: No such file or directory
+
+Check:
+pwd
+ls
+
+Then recreate:
+nano banker.c
+
+
+If ./banker says:
+No such file or directory
+
+Compile first:
+gcc banker.c -o banker
+
+Then:
+./banker
+
+
+If GCC shows errors:
+Open the source again:
+
+nano banker.c
+
+Check that the entire program was pasted correctly.
+
+============================================================
+RESULT
+============================================================
+
+Banker's Algorithm was implemented successfully. The Need Matrix was
+calculated and the system was found to be in a safe state with the safe
+sequence:
+
+P1 -> P3 -> P4 -> P0 -> P2
