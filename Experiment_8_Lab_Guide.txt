@@ -1,0 +1,265 @@
+EXPERIMENT 8 — LINUX SECURITY MECHANISMS
+
+TITLE: Demonstrate Linux security mechanisms like user authentication,
+password policies and basic firewall configuration (iptables/ufw).
+
+IMPORTANT FOR LAB: This guide assumes a FRESH/UNKNOWN Kali Linux PC. Do
+NOT assume SSH, UFW, testuser, or any previous experiment is already
+configured. If something is already installed/configured, the
+verification commands will show it.
+
+  ------------------------------
+  PART A — USER AUTHENTICATION
+  ------------------------------
+
+1)  Check current user and identity:
+
+whoami id
+
+2)  Create a test user:
+
+sudo adduser testuser
+
+When asked: - Enter a temporary lab password and confirm it. - For Full
+Name / Room Number / Work Phone / Home Phone / Other: press ENTER to
+leave them blank. - At “Is the information correct? [Y/n]” type Y.
+
+NOTE: While typing a Linux password, nothing appears on screen. This is
+normal.
+
+3)  Verify that the user was created:
+
+id testuser getent passwd testuser
+
+Expected general form: testuser:x:1001:1001:…:/home/testuser:/bin/bash
+
+IMPORTANT: Do NOT type “/home/testuser:/bin/bash” as a command. It is
+OUTPUT showing the user’s home directory and login shell.
+
+  --------------------------
+  PART B — PASSWORD POLICY
+  --------------------------
+
+4)  Display the current password ageing policy:
+
+sudo chage -l testuser
+
+5)  Set a password policy:
+
+sudo chage -m 1 -M 30 -W 7 testuser
+
+Meaning: -m 1 = minimum 1 day between password changes -M 30 = password
+expires after 30 days -W 7 = warn the user 7 days before password expiry
+
+6)  Verify the changed policy:
+
+sudo chage -l testuser
+
+Look for: Minimum number of days between password change : 1 Maximum
+number of days between password change : 30 Number of days of warning
+before password expires : 7
+
+7)  Show permissions of important authentication files:
+
+ls -l /etc/passwd /etc/shadow
+
+8)  Display the test user’s passwd entry:
+
+grep ‘^testuser:’ /etc/passwd
+
+  -----------------------
+  PART C — UFW FIREWALL
+  -----------------------
+
+9)  Check whether UFW exists:
+
+which ufw
+
+If the command gives no path / UFW is unavailable, install it:
+
+sudo apt update sudo apt install ufw
+
+10) Check current firewall status:
+
+sudo ufw status verbose
+
+IF UFW IS INACTIVE, continue normally with the commands below. IF UFW IS
+ALREADY ACTIVE, the same commands can still be used to establish and
+demonstrate the required policy.
+
+11) Set the default policies:
+
+sudo ufw default deny incoming sudo ufw default allow outgoing
+
+12) Allow SSH before enabling/reloading the firewall:
+
+sudo ufw allow OpenSSH
+
+If “OpenSSH” profile is unavailable, use:
+
+sudo ufw allow 22/tcp
+
+13) Enable UFW:
+
+sudo ufw enable
+
+If asked: “Command may disrupt existing ssh connections. Proceed with
+operation (y|n)?” type:
+
+y
+
+NOTE: If it says “Firewall is active and enabled on system startup”,
+that is fine.
+
+14) Verify the firewall configuration:
+
+sudo ufw status verbose sudo ufw status numbered
+
+You should see: Status: active Default: deny (incoming), allow
+(outgoing)
+
+and an SSH/OpenSSH allow rule.
+
+  ----------------------------------------------------------
+  PART D — DEMONSTRATE ADDING AND REMOVING A FIREWALL RULE
+  ----------------------------------------------------------
+
+15) Temporarily allow HTTP (port 80):
+
+sudo ufw allow 80/tcp
+
+16) Verify:
+
+sudo ufw status numbered
+
+You should now see both SSH/OpenSSH and 80/tcp rules.
+
+17) Remove the temporary HTTP rule:
+
+sudo ufw delete allow 80/tcp
+
+18) Verify that port 80 has been removed:
+
+sudo ufw status numbered
+
+The SSH/OpenSSH rule should remain.
+
+  --------------------------------------------
+  FINAL VERIFICATION / GOOD FINAL SCREENSHOT
+  --------------------------------------------
+
+Run:
+
+echo “===== USER AUTHENTICATION =====” id testuser getent passwd
+testuser
+
+echo “===== PASSWORD POLICY =====” sudo chage -l testuser
+
+echo “===== AUTHENTICATION FILE PERMISSIONS =====” ls -l /etc/passwd
+/etc/shadow
+
+echo “===== FIREWALL =====” sudo ufw status verbose
+
+  -------------------------
+  IF SOMETHING GOES WRONG
+  -------------------------
+
+1.  “adduser: The user ‘testuser’ already exists”
+
+Do NOT recreate it. Check it with:
+
+id testuser getent passwd testuser
+
+Then continue with the password-policy steps.
+
+2.  “sudo: ufw: command not found”
+
+Run:
+
+sudo apt update sudo apt install ufw
+
+3.  “ERROR: Could not find a profile matching ‘OpenSSH’”
+
+Use the port directly:
+
+sudo ufw allow 22/tcp
+
+4.  UFW says “Skipping adding existing rule”
+
+This is NOT an error. The required rule already exists. Continue to:
+
+sudo ufw status numbered
+
+5.  UFW is inactive
+
+Make sure SSH is allowed first:
+
+sudo ufw allow OpenSSH
+
+or, if that profile is unavailable:
+
+sudo ufw allow 22/tcp
+
+Then:
+
+sudo ufw enable sudo ufw status verbose
+
+6.  Terminal enters a screen that does not return to the prompt
+
+For commands such as status output displayed through a pager, press:
+
+q
+
+7.  You accidentally typed output such as:
+
+/home/testuser:/bin/bash
+
+and got “no such file or directory”
+
+Nothing is broken. That text is part of getent/passwd OUTPUT, not a
+command. Just continue with the next command.
+
+  --------------------------------------
+  OPTIONAL CLEANUP AFTER THE PRACTICAL
+  --------------------------------------
+
+Only if the instructor wants the temporary user removed:
+
+sudo deluser –remove-home testuser
+
+Do NOT remove the SSH firewall rule unless specifically instructed.
+
+  ---------------------------------------
+  SHORT COMMAND FLOW — FOR FAST LAB USE
+  ---------------------------------------
+
+whoami id
+
+sudo adduser testuser id testuser getent passwd testuser
+
+sudo chage -l testuser sudo chage -m 1 -M 30 -W 7 testuser sudo chage -l
+testuser
+
+ls -l /etc/passwd /etc/shadow grep ‘^testuser:’ /etc/passwd
+
+which ufw sudo ufw status verbose
+
+If ufw is missing:
+
+sudo apt update
+
+sudo apt install ufw
+
+sudo ufw default deny incoming sudo ufw default allow outgoing sudo ufw
+allow OpenSSH
+
+If OpenSSH profile is unavailable instead:
+
+sudo ufw allow 22/tcp
+
+sudo ufw enable sudo ufw status verbose sudo ufw status numbered
+
+sudo ufw allow 80/tcp sudo ufw status numbered sudo ufw delete allow
+80/tcp sudo ufw status numbered
+
+END OF EXPERIMENT 8
