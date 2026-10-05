@@ -1,0 +1,744 @@
+EXPERIMENT 9 - KALI LINUX SYSTEM HARDENING
+PRACTICAL QUICK GUIDE FOR LAB
+
+PURPOSE
+Use this when you have to redo Experiment 9 from a fresh terminal or on a lab Kali machine.
+Closing the terminal does NOT undo the configuration. On your own VM, most of what you already changed is still saved.
+On a different lab machine, follow the setup steps below.
+
+============================================================
+IMPORTANT BEFORE STARTING
+============================================================
+
+1. This guide is for Kali Linux (VM/native Kali; a Kali environment with systemd is best).
+2. Open Terminal.
+3. Run commands ONE BY ONE unless a block is explicitly marked as a verification block.
+4. Commands using sudo may ask for the Kali password.
+5. For screenshots, keep the command AND its output visible.
+6. Do NOT blindly edit SSH and restart it without first running:
+      sudo sshd -t
+   No output from this command = syntax is OK.
+7. If you are remotely connected to the machine over SSH, be extra careful with firewall/SSH changes. In a normal local college VM this is usually not an issue.
+
+============================================================
+PART A - IDENTIFY THE SYSTEM
+============================================================
+
+STEP 1 - Check current user
+
+COMMAND:
+whoami
+
+EXPECTED:
+Your username, commonly:
+kali
+
+
+STEP 2 - Check Kali/Linux version
+
+COMMAND:
+cat /etc/os-release
+
+EXPECTED:
+Lines such as:
+PRETTY_NAME="Kali GNU/Linux Rolling"
+
+SCREENSHOT:
+Take one if your practical requires proof of the environment.
+
+
+============================================================
+PART B - CHECK RUNNING SERVICES AND PORTS
+============================================================
+
+STEP 3 - List running services
+
+COMMAND:
+systemctl --type=service --state=running
+
+WHAT TO OBSERVE:
+A list of active services.
+
+You do NOT need to change every service.
+
+
+STEP 4 - Check listening network ports
+
+COMMAND:
+sudo ss -tulpn
+
+WHAT TO OBSERVE:
+Before SSH is started, port 22 may not appear.
+That is fine.
+
+
+============================================================
+PART C - SSH SERVICE + SSH HARDENING
+============================================================
+
+STEP 5 - Check whether sshd exists
+
+COMMAND:
+which sshd
+
+EXPECTED:
+ /usr/sbin/sshd
+
+IF "sshd" IS NOT FOUND:
+Install the SSH server:
+
+sudo apt update
+sudo apt install openssh-server -y
+
+
+STEP 6 - Start SSH
+
+COMMAND:
+sudo systemctl start ssh
+
+
+STEP 7 - Verify SSH
+
+COMMAND:
+sudo systemctl status ssh --no-pager
+
+EXPECTED:
+Active: active (running)
+
+Also verify port 22:
+
+sudo ss -tulpn | grep ':22'
+
+EXPECTED:
+A LISTEN entry for port 22.
+
+
+STEP 8 - BACK UP SSH CONFIGURATION
+
+IMPORTANT: Do this BEFORE editing on a new lab machine.
+
+COMMAND:
+sudo cp /etc/ssh/sshd_config /etc/ssh/sshd_config.backup
+
+VERIFY:
+ls -l /etc/ssh/sshd_config*
+
+You should see:
+sshd_config
+sshd_config.backup
+
+
+STEP 9 - Check current effective SSH settings
+
+COMMAND:
+sudo sshd -T | grep -E 'permitrootlogin|maxauthtries|x11forwarding'
+
+Typical unhardened values may include:
+maxauthtries 6
+permitrootlogin prohibit-password
+x11forwarding yes
+
+Your exact starting values can differ.
+
+
+STEP 10 - Edit SSH configuration
+
+COMMAND:
+sudo nano /etc/ssh/sshd_config
+
+IMPORTANT:
+First search/check whether these settings already occur as ACTIVE lines in the file:
+PermitRootLogin
+MaxAuthTries
+X11Forwarding
+
+In nano you can use Ctrl+W to search.
+
+Set the effective values to:
+
+PermitRootLogin no
+MaxAuthTries 3
+X11Forwarding no
+
+You may add a clearly labelled section such as:
+
+# EXPERIMENT 9 - SSH HARDENING
+PermitRootLogin no
+MaxAuthTries 3
+X11Forwarding no
+
+BUT:
+If an earlier active line says:
+X11Forwarding yes
+
+change that earlier active line to:
+X11Forwarding no
+
+This matters because duplicate SSH directives can cause the earlier applicable value to remain effective.
+
+SAVE NANO:
+Ctrl+O
+Enter
+Ctrl+X
+
+
+STEP 11 - TEST SSH CONFIG BEFORE RESTARTING
+
+COMMAND:
+sudo sshd -t
+
+EXPECTED:
+NO OUTPUT.
+
+If an error appears, DO NOT restart SSH.
+Open the file again and fix the reported line.
+
+
+STEP 12 - Restart SSH
+
+COMMAND:
+sudo systemctl restart ssh
+
+
+STEP 13 - Verify hardening
+
+COMMAND:
+sudo sshd -T | grep -E 'permitrootlogin|maxauthtries|x11forwarding'
+
+REQUIRED FINAL OUTPUT:
+
+maxauthtries 3
+permitrootlogin no
+x11forwarding no
+
+
+---------------- SSH TROUBLESHOOTING ----------------
+
+PROBLEM:
+You set "X11Forwarding no" but sshd -T still says:
+x11forwarding yes
+
+RUN:
+grep -Rni "X11Forwarding" /etc/ssh/
+
+If permission-denied messages appear for SSH host key files, that is not the issue.
+
+Look specifically at /etc/ssh/sshd_config.
+
+Example problem:
+.../sshd_config:92:X11Forwarding yes
+.../sshd_config:128:X11Forwarding no
+
+FIX:
+sudo nano /etc/ssh/sshd_config
+
+Change the earlier ACTIVE:
+X11Forwarding yes
+
+to:
+X11Forwarding no
+
+Then:
+
+sudo sshd -t
+sudo systemctl restart ssh
+sudo sshd -T | grep -E 'permitrootlogin|maxauthtries|x11forwarding'
+
+Required:
+maxauthtries 3
+permitrootlogin no
+x11forwarding no
+
+
+============================================================
+PART D - DISABLE AN UNNECESSARY SERVICE (BLUETOOTH)
+============================================================
+
+STEP 14 - Check Bluetooth
+
+COMMAND:
+systemctl status bluetooth --no-pager
+
+It may already be inactive/disabled.
+
+
+STEP 15 - Check whether it starts automatically
+
+COMMAND:
+systemctl is-enabled bluetooth
+
+Possible output:
+disabled
+
+
+STEP 16 - Disable and stop Bluetooth
+
+COMMAND:
+sudo systemctl disable --now bluetooth
+
+
+STEP 17 - Verify
+
+COMMANDS:
+systemctl is-enabled bluetooth
+systemctl is-active bluetooth
+
+EXPECTED:
+
+disabled
+inactive
+
+NOTE:
+If Bluetooth was already disabled/inactive, that is fine. The final verification is what matters.
+
+
+============================================================
+PART E - INSTALL AND CONFIGURE UFW FIREWALL
+============================================================
+
+STEP 18 - Check whether UFW exists
+
+COMMAND:
+which ufw
+
+If you get a path such as:
+/usr/sbin/ufw
+
+continue to Step 20.
+
+If you get:
+ufw not found
+
+install it.
+
+
+STEP 19 - Install UFW if needed
+
+COMMAND:
+sudo apt install ufw -y
+
+If apt cannot find/download packages, check internet/network connectivity and run:
+sudo apt update
+
+Then retry:
+sudo apt install ufw -y
+
+
+STEP 20 - ALLOW SSH BEFORE ENABLING FIREWALL
+
+COMMAND:
+sudo ufw allow OpenSSH
+
+EXPECTED:
+Rules updated
+Rules updated (v6)
+
+IMPORTANT:
+Do this before enabling UFW so SSH is not blocked.
+
+
+STEP 21 - Set firewall defaults
+
+COMMAND:
+sudo ufw default deny incoming
+
+EXPECTED:
+Default incoming policy changed to 'deny'
+
+
+COMMAND:
+sudo ufw default allow outgoing
+
+EXPECTED:
+Default outgoing policy changed to 'allow'
+
+
+STEP 22 - Enable firewall
+
+COMMAND:
+sudo ufw enable
+
+If asked:
+Command may disrupt existing ssh connections. Proceed with operation (y|n)?
+
+On a local Kali VM/console, type:
+y
+
+EXPECTED:
+Firewall is active and enabled on system startup
+
+
+STEP 23 - Verify firewall
+
+COMMAND:
+sudo ufw status verbose
+
+REQUIRED KEY RESULTS:
+
+Status: active
+Default: deny (incoming), allow (outgoing)
+
+and an SSH rule similar to:
+
+22/tcp (OpenSSH)           ALLOW IN    Anywhere
+22/tcp (OpenSSH (v6))      ALLOW IN    Anywhere (v6)
+
+
+============================================================
+PART F - FINAL VERIFICATION
+============================================================
+
+Run these individually if you want clean screenshots.
+
+1. SSH service:
+
+sudo systemctl status ssh --no-pager
+
+Look for:
+Active: active (running)
+
+
+2. SSH port:
+
+sudo ss -tulpn | grep ':22'
+
+Look for:
+LISTEN ... :22
+
+
+3. SSH hardening:
+
+sudo sshd -T | grep -E 'permitrootlogin|maxauthtries|x11forwarding'
+
+Required:
+maxauthtries 3
+permitrootlogin no
+x11forwarding no
+
+
+4. Bluetooth:
+
+systemctl is-enabled bluetooth
+systemctl is-active bluetooth
+
+Required:
+disabled
+inactive
+
+
+5. Firewall:
+
+sudo ufw status verbose
+
+Required:
+Status: active
+Default: deny (incoming), allow (outgoing)
+OpenSSH/22 allowed
+
+
+============================================================
+BEST FINAL SCREENSHOT - COMPACT PROOF
+============================================================
+
+You can run this whole block:
+
+echo "===== SSH HARDENING ====="
+sudo sshd -T | grep -E 'permitrootlogin|maxauthtries|x11forwarding'
+echo "===== SSH SERVICE ====="
+systemctl is-active ssh
+echo "===== BLUETOOTH ====="
+systemctl is-enabled bluetooth
+systemctl is-active bluetooth
+echo "===== FIREWALL ====="
+sudo ufw status verbose
+
+GOOD FINAL OUTPUT SHOULD SHOW:
+
+===== SSH HARDENING =====
+maxauthtries 3
+permitrootlogin no
+x11forwarding no
+
+===== SSH SERVICE =====
+active
+
+===== BLUETOOTH =====
+disabled
+inactive
+
+===== FIREWALL =====
+Status: active
+Default: deny (incoming), allow (outgoing)
+...
+22/tcp (OpenSSH) ALLOW IN ...
+
+
+============================================================
+IF YOU ACCIDENTALLY CLOSE THE TERMINAL
+============================================================
+
+DO NOT PANIC AND DO NOT REDO EVERYTHING IMMEDIATELY.
+
+Opening/closing Terminal does not normally undo:
+- edits to /etc/ssh/sshd_config
+- disabled services
+- UFW rules
+- installed packages
+
+Open a new Terminal and run:
+
+sudo sshd -T | grep -E 'permitrootlogin|maxauthtries|x11forwarding'
+systemctl is-active ssh
+systemctl is-enabled bluetooth
+systemctl is-active bluetooth
+sudo ufw status verbose
+
+If you see:
+
+maxauthtries 3
+permitrootlogin no
+x11forwarding no
+
+active
+
+disabled
+inactive
+
+Status: active
+Default: deny (incoming), allow (outgoing)
+
+and OpenSSH is allowed,
+
+YOU DO NOT NEED TO REDO THE EXPERIMENT.
+
+============================================================
+IF THIS IS A NEW COLLEGE/LAB KALI MACHINE
+============================================================
+
+A new machine will NOT contain the changes from your home VM.
+
+Do this sequence:
+
+1. whoami
+2. cat /etc/os-release
+3. systemctl --type=service --state=running
+4. sudo ss -tulpn
+5. which sshd
+6. sudo systemctl start ssh
+7. sudo systemctl status ssh --no-pager
+8. sudo cp /etc/ssh/sshd_config /etc/ssh/sshd_config.backup
+9. sudo sshd -T | grep -E 'permitrootlogin|maxauthtries|x11forwarding'
+10. sudo nano /etc/ssh/sshd_config
+11. Set:
+       PermitRootLogin no
+       MaxAuthTries 3
+       X11Forwarding no
+12. sudo sshd -t
+13. sudo systemctl restart ssh
+14. sudo sshd -T | grep -E 'permitrootlogin|maxauthtries|x11forwarding'
+15. sudo systemctl disable --now bluetooth
+16. systemctl is-enabled bluetooth
+17. systemctl is-active bluetooth
+18. which ufw
+19. If missing: sudo apt install ufw -y
+20. sudo ufw allow OpenSSH
+21. sudo ufw default deny incoming
+22. sudo ufw default allow outgoing
+23. sudo ufw enable
+24. sudo ufw status verbose
+25. Run final verification block and take screenshots.
+
+
+============================================================
+SCREENSHOTS TO TAKE FOR PRACTICAL RECORD
+============================================================
+
+Recommended minimum evidence:
+
+SCREENSHOT 1:
+cat /etc/os-release
+
+SCREENSHOT 2:
+sudo systemctl status ssh --no-pager
+and/or
+sudo ss -tulpn | grep ':22'
+
+SCREENSHOT 3:
+sudo sshd -T | grep -E 'permitrootlogin|maxauthtries|x11forwarding'
+
+Must show:
+maxauthtries 3
+permitrootlogin no
+x11forwarding no
+
+SCREENSHOT 4:
+systemctl is-enabled bluetooth
+systemctl is-active bluetooth
+
+Must show:
+disabled
+inactive
+
+SCREENSHOT 5:
+sudo ufw status verbose
+
+Must show:
+Status: active
+Default: deny incoming / allow outgoing
+OpenSSH allowed
+
+OPTION:
+Use the compact final verification block as one strong final screenshot.
+
+
+============================================================
+COMMON LAB ERRORS
+============================================================
+
+ERROR: sudo: sshd: command not found
+FIX:
+sudo apt update
+sudo apt install openssh-server -y
+
+
+ERROR: Failed to restart ssh.service / unit not found
+FIX:
+Check:
+systemctl status ssh
+which sshd
+
+If OpenSSH server is missing:
+sudo apt install openssh-server -y
+
+
+ERROR: sshd -t prints an error
+FIX:
+Do NOT restart SSH.
+Read the line number in the error:
+sudo nano /etc/ssh/sshd_config
+Correct it, save, then:
+sudo sshd -t
+
+
+ERROR: x11forwarding is still yes
+FIX:
+grep -Rni "X11Forwarding" /etc/ssh/
+
+Then fix earlier active "X11Forwarding yes" in sshd_config.
+Retest and restart.
+
+
+ERROR: ufw: command not found
+FIX:
+sudo apt update
+sudo apt install ufw -y
+
+
+ERROR: Bluetooth unit does not exist
+This can happen depending on the lab image.
+Record the output instead of inventing a result. The practical machine may not have the Bluetooth service/package.
+
+
+ERROR: "Permission denied" while grepping /etc/ssh/
+Host private-key files are protected.
+For the troubleshooting search, you can instead run:
+
+sudo grep -Rni "X11Forwarding" /etc/ssh/
+
+Focus on sshd_config and .conf configuration files.
+
+
+============================================================
+FINAL CHECKLIST
+============================================================
+
+[ ] Kali/Linux environment verified
+[ ] Running services inspected
+[ ] Listening ports inspected
+[ ] SSH running
+[ ] SSH port 22 listening
+[ ] sshd_config backed up
+[ ] PermitRootLogin = no
+[ ] MaxAuthTries = 3
+[ ] X11Forwarding = no
+[ ] sshd -t passes
+[ ] Bluetooth disabled
+[ ] Bluetooth inactive
+[ ] UFW installed
+[ ] OpenSSH allowed through UFW
+[ ] Default incoming = deny
+[ ] Default outgoing = allow
+[ ] UFW active
+[ ] Final screenshots captured
+
+
+============================================================
+EMERGENCY CHEAT SHEET
+============================================================
+
+--- FIRST: CHECK WHETHER IT IS ALREADY DONE ---
+
+sudo sshd -T | grep -E 'permitrootlogin|maxauthtries|x11forwarding'
+systemctl is-active ssh
+systemctl is-enabled bluetooth
+systemctl is-active bluetooth
+sudo ufw status verbose
+
+--- SSH SETUP/HARDENING ---
+
+sudo systemctl start ssh
+sudo cp /etc/ssh/sshd_config /etc/ssh/sshd_config.backup
+sudo nano /etc/ssh/sshd_config
+
+SET:
+PermitRootLogin no
+MaxAuthTries 3
+X11Forwarding no
+
+THEN:
+sudo sshd -t
+sudo systemctl restart ssh
+sudo sshd -T | grep -E 'permitrootlogin|maxauthtries|x11forwarding'
+
+--- IF X11 STILL SAYS YES ---
+
+sudo grep -Rni "X11Forwarding" /etc/ssh/
+
+Fix earlier active:
+X11Forwarding yes
+to:
+X11Forwarding no
+
+Then:
+sudo sshd -t
+sudo systemctl restart ssh
+
+--- BLUETOOTH ---
+
+sudo systemctl disable --now bluetooth
+systemctl is-enabled bluetooth
+systemctl is-active bluetooth
+
+--- UFW ---
+
+which ufw
+sudo apt install ufw -y
+sudo ufw allow OpenSSH
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw enable
+sudo ufw status verbose
+
+--- FINAL PROOF ---
+
+echo "===== SSH HARDENING ====="
+sudo sshd -T | grep -E 'permitrootlogin|maxauthtries|x11forwarding'
+echo "===== SSH SERVICE ====="
+systemctl is-active ssh
+echo "===== BLUETOOTH ====="
+systemctl is-enabled bluetooth
+systemctl is-active bluetooth
+echo "===== FIREWALL ====="
+sudo ufw status verbose
+
+END OF EXPERIMENT 9 QUICK GUIDE
