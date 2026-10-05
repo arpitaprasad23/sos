@@ -1,0 +1,612 @@
+EXPERIMENT 5 - PAGE REPLACEMENT ALGORITHMS
+===========================================
+
+TITLE:
+Simulate Page Replacement Algorithms (FIFO, LRU, Optimal) and analyse page faults.
+
+IMPORTANT:
+This is the UPDATED lab version.
+It accepts the reference string and number of frames from the user and
+shows every Page Hit / Page Fault and the frame contents.
+
+This guide assumes you may get a completely fresh Kali Linux PC in the lab.
+Nothing from Experiments 6-10 is assumed to be already installed or configured.
+
+============================================================
+PART 1 - CHECK GCC
+============================================================
+
+Open Terminal.
+
+Check whether GCC is installed:
+
+gcc --version
+
+If GCC is missing:
+
+sudo apt update
+sudo apt install gcc -y
+
+============================================================
+PART 2 - CREATE THE PROGRAM
+============================================================
+
+Create the file:
+
+nano exp5.c
+
+Paste ALL of this code:
+
+#include <stdio.h>
+
+#define MAX 100
+
+// Check whether page is already present
+int isPagePresent(int frames[], int frameCount, int page)
+{
+    for (int i = 0; i < frameCount; i++)
+    {
+        if (frames[i] == page)
+            return 1;
+    }
+
+    return 0;
+}
+
+// Display frames
+void displayFrames(int frames[], int frameCount)
+{
+    for (int i = 0; i < frameCount; i++)
+    {
+        if (frames[i] == -1)
+            printf("- ");
+        else
+            printf("%d ", frames[i]);
+    }
+
+    printf("\n");
+}
+
+// FIFO Page Replacement
+int FIFO(int pages[], int n, int frameCount)
+{
+    int frames[MAX];
+    int pointer = 0;
+    int pageFaults = 0;
+
+    for (int i = 0; i < frameCount; i++)
+        frames[i] = -1;
+
+    printf("\n===== FIFO PAGE REPLACEMENT =====\n");
+
+    for (int i = 0; i < n; i++)
+    {
+        printf("Page %d: ", pages[i]);
+
+        if (!isPagePresent(frames, frameCount, pages[i]))
+        {
+            frames[pointer] = pages[i];
+            pointer = (pointer + 1) % frameCount;
+            pageFaults++;
+
+            printf("Page Fault -> ");
+        }
+        else
+        {
+            printf("Page Hit   -> ");
+        }
+
+        displayFrames(frames, frameCount);
+    }
+
+    printf("Total FIFO Page Faults = %d\n", pageFaults);
+
+    return pageFaults;
+}
+
+// LRU Page Replacement
+int LRU(int pages[], int n, int frameCount)
+{
+    int frames[MAX];
+    int recent[MAX];
+
+    int pageFaults = 0;
+    int time = 0;
+
+    for (int i = 0; i < frameCount; i++)
+    {
+        frames[i] = -1;
+        recent[i] = 0;
+    }
+
+    printf("\n===== LRU PAGE REPLACEMENT =====\n");
+
+    for (int i = 0; i < n; i++)
+    {
+        int page = pages[i];
+        int found = -1;
+
+        for (int j = 0; j < frameCount; j++)
+        {
+            if (frames[j] == page)
+            {
+                found = j;
+                break;
+            }
+        }
+
+        printf("Page %d: ", page);
+
+        time++;
+
+        if (found != -1)
+        {
+            recent[found] = time;
+            printf("Page Hit   -> ");
+        }
+        else
+        {
+            pageFaults++;
+
+            int replaceIndex = -1;
+
+            for (int j = 0; j < frameCount; j++)
+            {
+                if (frames[j] == -1)
+                {
+                    replaceIndex = j;
+                    break;
+                }
+            }
+
+            if (replaceIndex == -1)
+            {
+                int minimum = recent[0];
+                replaceIndex = 0;
+
+                for (int j = 1; j < frameCount; j++)
+                {
+                    if (recent[j] < minimum)
+                    {
+                        minimum = recent[j];
+                        replaceIndex = j;
+                    }
+                }
+            }
+
+            frames[replaceIndex] = page;
+            recent[replaceIndex] = time;
+
+            printf("Page Fault -> ");
+        }
+
+        displayFrames(frames, frameCount);
+    }
+
+    printf("Total LRU Page Faults = %d\n", pageFaults);
+
+    return pageFaults;
+}
+
+// Optimal Page Replacement
+int Optimal(int pages[], int n, int frameCount)
+{
+    int frames[MAX];
+    int pageFaults = 0;
+
+    for (int i = 0; i < frameCount; i++)
+        frames[i] = -1;
+
+    printf("\n===== OPTIMAL PAGE REPLACEMENT =====\n");
+
+    for (int i = 0; i < n; i++)
+    {
+        int page = pages[i];
+
+        printf("Page %d: ", page);
+
+        if (isPagePresent(frames, frameCount, page))
+        {
+            printf("Page Hit   -> ");
+            displayFrames(frames, frameCount);
+            continue;
+        }
+
+        pageFaults++;
+
+        int replaceIndex = -1;
+
+        for (int j = 0; j < frameCount; j++)
+        {
+            if (frames[j] == -1)
+            {
+                replaceIndex = j;
+                break;
+            }
+        }
+
+        if (replaceIndex == -1)
+        {
+            int farthest = -1;
+
+            for (int j = 0; j < frameCount; j++)
+            {
+                int k;
+
+                for (k = i + 1; k < n; k++)
+                {
+                    if (frames[j] == pages[k])
+                        break;
+                }
+
+                if (k == n)
+                {
+                    replaceIndex = j;
+                    break;
+                }
+
+                if (k > farthest)
+                {
+                    farthest = k;
+                    replaceIndex = j;
+                }
+            }
+        }
+
+        frames[replaceIndex] = page;
+
+        printf("Page Fault -> ");
+        displayFrames(frames, frameCount);
+    }
+
+    printf("Total Optimal Page Faults = %d\n", pageFaults);
+
+    return pageFaults;
+}
+
+int main()
+{
+    int pages[MAX];
+    int n;
+    int frameCount;
+
+    printf("===== PAGE REPLACEMENT ALGORITHMS =====\n\n");
+
+    printf("Enter number of pages in reference string: ");
+    scanf("%d", &n);
+
+    printf("Enter reference string:\n");
+
+    for (int i = 0; i < n; i++)
+        scanf("%d", &pages[i]);
+
+    printf("Enter number of frames: ");
+    scanf("%d", &frameCount);
+
+    if (frameCount <= 0 || frameCount > n)
+    {
+        printf("Invalid number of frames.\n");
+        return 1;
+    }
+
+    int fifoFaults = FIFO(pages, n, frameCount);
+    int lruFaults = LRU(pages, n, frameCount);
+    int optimalFaults = Optimal(pages, n, frameCount);
+
+    printf("\n====================================\n");
+    printf("       PAGE FAULT COMPARISON\n");
+    printf("====================================\n");
+
+    printf("FIFO     : %d page faults\n", fifoFaults);
+    printf("LRU      : %d page faults\n", lruFaults);
+    printf("Optimal  : %d page faults\n", optimalFaults);
+
+    printf("====================================\n");
+
+    return 0;
+}
+
+============================================================
+PART 3 - SAVE AND EXIT
+============================================================
+
+In nano:
+
+Ctrl + O
+Enter
+Ctrl + X
+
+============================================================
+PART 4 - COMPILE
+============================================================
+
+gcc exp5.c -o exp5
+
+If there is no error/output, compilation succeeded.
+
+============================================================
+PART 5 - RUN
+============================================================
+
+./exp5
+
+For the test we used, enter:
+
+Enter number of pages in reference string:
+13
+
+Enter reference string:
+7 0 1 2 0 3 0 4 2 3 0 3 2
+
+Enter number of frames:
+3
+
+IMPORTANT:
+You can type the entire reference string on one line separated by spaces.
+
+============================================================
+EXPECTED FINAL RESULT FOR THIS INPUT
+============================================================
+
+FIFO     : 10 page faults
+LRU      : 9 page faults
+Optimal  : 7 page faults
+
+The program will ALSO show each individual page request as a Page Hit
+or Page Fault and display the frames after every request.
+
+============================================================
+WHAT THE OUTPUT MEANS
+============================================================
+
+PAGE HIT:
+The requested page is already present in one of the frames.
+No new page needs to be loaded.
+
+PAGE FAULT:
+The requested page is not currently present in the frames.
+It must be loaded into memory.
+
+REFERENCE STRING:
+The sequence of page numbers requested by the process.
+
+FRAME:
+A location in physical memory that holds a page.
+
+============================================================
+FIFO
+============================================================
+
+FIFO = First In First Out.
+
+Replace the page that entered memory FIRST.
+
+Think:
+oldest page in memory -> remove it first.
+
+The variable "pointer" keeps track of the next frame to replace.
+
+For our input:
+
+FIFO = 10 page faults.
+
+============================================================
+LRU
+============================================================
+
+LRU = Least Recently Used.
+
+Replace the page that has not been used for the longest time.
+
+EASY MEMORY TRICK:
+
+LRU -> LOOK BACKWARD.
+
+The program uses the "recent" array to remember when each page was last
+used.
+
+For our input:
+
+LRU = 9 page faults.
+
+============================================================
+OPTIMAL
+============================================================
+
+Optimal replaces the page whose next use is FARTHEST IN THE FUTURE.
+
+EASY MEMORY TRICK:
+
+OPTIMAL -> LOOK FORWARD.
+
+If one of the pages currently in memory will never be used again, it is
+a good page to replace.
+
+For our input:
+
+Optimal = 7 page faults.
+
+Optimal generally gives the minimum possible number of page faults for
+a known reference string.
+
+It is mainly a theoretical benchmark because a real operating system
+cannot perfectly know future memory references.
+
+============================================================
+WHY THIS VERSION IS GOOD FOR THE LAB
+============================================================
+
+This version:
+
+1. Takes the reference string as user input.
+2. Takes the number of frames as user input.
+3. Shows Page Hit and Page Fault for every request.
+4. Shows frame contents after every request.
+5. Calculates total FIFO faults.
+6. Calculates total LRU faults.
+7. Calculates total Optimal faults.
+8. Prints a final comparison.
+
+So if the examiner gives you a DIFFERENT reference string or frame
+count, you do NOT need to edit the C program.
+
+Just run:
+
+./exp5
+
+and enter the examiner's values.
+
+============================================================
+QUICK LAB SURVIVAL VERSION
+============================================================
+
+1. Check GCC:
+
+gcc --version
+
+2. If missing:
+
+sudo apt update
+sudo apt install gcc -y
+
+3. Create:
+
+nano exp5.c
+
+4. Paste program.
+
+5. Save:
+
+Ctrl + O
+Enter
+Ctrl + X
+
+6. Compile:
+
+gcc exp5.c -o exp5
+
+7. Run:
+
+./exp5
+
+8. Test values:
+
+Number of pages:
+13
+
+Reference string:
+7 0 1 2 0 3 0 4 2 3 0 3 2
+
+Frames:
+3
+
+9. Final expected comparison:
+
+FIFO     : 10 page faults
+LRU      : 9 page faults
+Optimal  : 7 page faults
+
+============================================================
+IF SOMETHING GOES WRONG
+============================================================
+
+PROBLEM:
+gcc: command not found
+
+FIX:
+
+sudo apt update
+sudo apt install gcc -y
+
+
+PROBLEM:
+exp5.c: No such file or directory
+
+CHECK:
+
+pwd
+ls
+
+Then recreate:
+
+nano exp5.c
+
+
+PROBLEM:
+./exp5: No such file or directory
+
+Compile first:
+
+gcc exp5.c -o exp5
+
+Then:
+
+./exp5
+
+
+PROBLEM:
+Compilation errors
+
+Open:
+
+nano exp5.c
+
+Check that the entire code was copied correctly.
+
+
+PROBLEM:
+Program appears to be waiting / doing nothing after asking for the
+reference string.
+
+It is waiting for all n page numbers.
+
+Example:
+
+If n = 13, you MUST enter 13 numbers:
+
+7 0 1 2 0 3 0 4 2 3 0 3 2
+
+
+PROBLEM:
+Invalid number of frames.
+
+The program requires:
+
+frameCount > 0
+
+and
+
+frameCount <= number of pages.
+
+============================================================
+VERY SHORT ALGORITHM MEMORY TRICK
+============================================================
+
+FIFO:
+Who came FIRST?
+Kick them out.
+
+LRU:
+Look BACKWARD.
+Who was used least recently?
+
+OPTIMAL:
+Look FORWARD.
+Who will be needed farthest in the future?
+
+============================================================
+RESULT
+============================================================
+
+FIFO, LRU and Optimal page replacement algorithms were successfully
+simulated and their page faults were analysed.
+
+For the sample reference string:
+
+7 0 1 2 0 3 0 4 2 3 0 3 2
+
+with 3 frames:
+
+FIFO     = 10 page faults
+LRU      = 9 page faults
+Optimal  = 7 page faults
