@@ -1,0 +1,54 @@
+*Experiment 1 - Linux*
+- Create a nano file with filename.c
+- then paste the code 
+- gcc filename.c -o filename
+- ./ Filename
+
+*Experiment 2 -* c compiler you can run
+
+*Experiment 3 -*
+Part A - shared memory
+Follow the same steps of creating the file and 
+Reader and writer
+**Open another terminal and run the reader file there to receive the message from the writer
+
+Part B - Message queue
+Same follow ** from part A
+
+*Experiment 4* -
+Follow exp 1 commands 
+
+*Experiment 5* -
+In this you are supposed to follow the same
+Then for the output 
+- Enter the number of strings = 3 (any random number) 
+- enter reference strings = 1 2 3
+- enter number of frames = any random number 
+Then the output comes
+
+*Experiment 6*
+For outputs while
+- Enter the number of process keep it small so that it's easy
+- and number of resources too easy because it forms a matrix.
+
+*Experiment 7*
+Part A - same exp 1 file operations in Linux
+
+Part B - file control in Linux 
+First
+Ls -l and check the 
+read= 4,write=2,execute=1
+
+Now create a test file 
+- Touch filename.text
+- ls -l filename.txt (check permissions)
+- give the owner read/write permission so, *chmod 644 filename.txt*
+- make the file read only for everyone, *chmod 444 filename.txt*
+- give the owner full permission, *chmod 700 filename.txt*
+
+Now, change the owner 
+- ls -l filename.txt
+- change owner - *sudo chown $USER filename.txt*
+- change group - *sudo chgrp $USER filename.txt*
+- 
+-
