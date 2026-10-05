@@ -1,0 +1,43 @@
+*Experiment 9*
+Part A - Check and disable unused services
+
+1. First list running services 
+- *systemctl --type=service --state=running*
+- *systemctl status ssh* (for a particular service)
+- check if ssh still starts- *systemctl is-enabled ssh*
+
+Part B - Disable unused service
+Basically start with install
+Sudo apt install cups
+
+- sudo systemctl status cups
+- sudo systemctl stop cups
+- sudo systemctl disable cups
+- systemctl is-enabled cups
+- systemctl status cups 
+
+Part C - Secure SSH configuration
+
+- sudo systemctl status ssh
+- if it's not active then
+*sudo systemctl start ssh*
+- sudo cp /etc/ssh/sshd_config (existing file) 
+- write this together the up and down ones**
+-  /etc/ssh/sshd_config.bak (new backup file that will be created)
+- first check if og file exists
+- ls -l /etc/ssh/sshd_config
+- sudo cp /etc/ssh/sshd_config  /etc/ssh/sshd_config.bak
+- verify the backup 
+- ls -l /etc/ssh/sshd_config*
+- now,
+- sudo nano /etc/ssh/sshd_config
+- ctrl + W
+- look for PermitRootLogin 
+Change it to *PermitRootLogin no*
+- then search *maxauthtries change 6 to 3*
+- now check for ssh 
+- Sudo sshd -t
+- sudo systemctl restart shh
+- look for active running.
+
+-

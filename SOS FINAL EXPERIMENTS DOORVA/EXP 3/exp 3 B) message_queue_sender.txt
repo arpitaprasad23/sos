@@ -1,0 +1,47 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/ipc.h>
+#include <sys/msg.h>
+
+struct message
+{
+    long message_type;
+    char message_text[200];
+};
+
+int main()
+{
+    key_t key = 5678;
+    int msgid;
+
+    struct message msg;
+
+    // Create message queue
+    msgid = msgget(key, IPC_CREAT | 0666);
+
+    if (msgid == -1)
+    {
+        perror("msgget failed");
+        return 1;
+    }
+
+    msg.message_type = 1;
+
+    printf("Enter message: ");
+    fgets(msg.message_text, sizeof(msg.message_text), stdin);
+
+    // Send message
+    if (msgsnd(msgid,
+               &msg,
+               strlen(msg.message_text) + 1,
+               0) == -1)
+    {
+        perror("msgsnd failed");
+        return 1;
+    }
+
+    printf("Message sent successfully.\n");
+
+    return 0;
+}

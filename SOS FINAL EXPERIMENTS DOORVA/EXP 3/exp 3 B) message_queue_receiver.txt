@@ -1,0 +1,46 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/ipc.h>
+#include <sys/msg.h>
+
+struct message
+{
+    long message_type;
+    char message_text[200];
+};
+
+int main()
+{
+    key_t key = 5678;
+    int msgid;
+
+    struct message msg;
+
+    // Access message queue
+    msgid = msgget(key, 0666);
+
+    if (msgid == -1)
+    {
+        perror("msgget failed");
+        return 1;
+    }
+
+    // Receive message
+    if (msgrcv(msgid,
+               &msg,
+               sizeof(msg.message_text),
+               1,
+               0) == -1)
+    {
+        perror("msgrcv failed");
+        return 1;
+    }
+
+    printf("Message received from message queue:\n");
+    printf("%s", msg.message_text);
+
+    // Remove message queue
+    msgctl(msgid, IPC_RMID, NULL);
+
+    return 0;
+}

@@ -1,0 +1,43 @@
+*Experiment  8*
+Part A - User authentication
+1. Check the current user
+- whoami
+- who
+- id 
+2. Create a user
+- sudo adduser testuser
+- id testuser
+- grel testuser /etc/passed
+3. Test authentication
+- su - testuser
+- then
+- Whoami
+- who
+- (you must get that the testuser is logged in)
+- Once done then type exit
+
+
+Part B - password policies 
+1. Check the password policy 
+- sudo chage -l testuser
+
+2. Set password expiration 
+- *sudo chage -M 90 testuser*( password expired after 90 days)
+- *sudo chage -m 1 testuser* (password cant be changed for one day)
+- *sudo chage -W 7 testuser* (warns user before 7 days expiration) 
+- *sudo chage -l testuser* (display password aging information) 
+
+
+Part C - Basic firewall configuration 
+
+- ufw -- version (install)
+- sudo ufw status (if it shows inactive)
+- sudo ufw enable (then it shows active)
+- now allow ssh and http
+- *sudo ufw allow 22/tcp*
+- *sudo ufw allow 80/TCP*
+- block a port -
+- sudo ufw deny 23/tcp
+- final
+- Sudo iptables -L -n -v
+-

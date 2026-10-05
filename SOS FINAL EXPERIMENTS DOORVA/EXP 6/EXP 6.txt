@@ -1,0 +1,171 @@
+#include <stdio.h>
+
+#define MAX_PROCESSES 10
+#define MAX_RESOURCES 10
+
+int main()
+{
+    int n, m;
+
+    int allocation[MAX_PROCESSES][MAX_RESOURCES];
+    int maximum[MAX_PROCESSES][MAX_RESOURCES];
+    int need[MAX_PROCESSES][MAX_RESOURCES];
+    int available[MAX_RESOURCES];
+
+    int work[MAX_RESOURCES];
+    int finish[MAX_PROCESSES] = {0};
+    int safeSequence[MAX_PROCESSES];
+
+    int count = 0;
+
+    printf("===== BANKER'S ALGORITHM =====\n\n");
+
+    // Number of processes
+    printf("Enter number of processes: ");
+    scanf("%d", &n);
+
+    // Number of resource types
+    printf("Enter number of resource types: ");
+    scanf("%d", &m);
+
+    // Input Allocation Matrix
+    printf("\nEnter Allocation Matrix:\n");
+
+    for (int i = 0; i < n; i++)
+    {
+        printf("P%d: ", i);
+
+        for (int j = 0; j < m; j++)
+        {
+            scanf("%d", &allocation[i][j]);
+        }
+    }
+
+    // Input Maximum Matrix
+    printf("\nEnter Maximum Matrix:\n");
+
+    for (int i = 0; i < n; i++)
+    {
+        printf("P%d: ", i);
+
+        for (int j = 0; j < m; j++)
+        {
+            scanf("%d", &maximum[i][j]);
+        }
+    }
+
+    // Input Available Resources
+    printf("\nEnter Available Resources:\n");
+
+    for (int j = 0; j < m; j++)
+    {
+        scanf("%d", &available[j]);
+    }
+
+    // Calculate Need Matrix
+    // Need = Maximum - Allocation
+
+    for (int i = 0; i < n; i++)
+    {
+        for (int j = 0; j < m; j++)
+        {
+            need[i][j] =
+                maximum[i][j] - allocation[i][j];
+        }
+    }
+
+    // Display Need Matrix
+    printf("\n===== NEED MATRIX =====\n");
+
+    for (int i = 0; i < n; i++)
+    {
+        printf("P%d: ", i);
+
+        for (int j = 0; j < m; j++)
+        {
+            printf("%d ", need[i][j]);
+        }
+
+        printf("\n");
+    }
+
+    // Initialize Work = Available
+    for (int j = 0; j < m; j++)
+    {
+        work[j] = available[j];
+    }
+
+    // Banker's Algorithm
+    while (count < n)
+    {
+        int found = 0;
+
+        for (int i = 0; i < n; i++)
+        {
+            if (finish[i] == 0)
+            {
+                int canExecute = 1;
+
+                // Check Need <= Work
+                for (int j = 0; j < m; j++)
+                {
+                    if (need[i][j] > work[j])
+                    {
+                        canExecute = 0;
+                        break;
+                    }
+                }
+
+                if (canExecute)
+                {
+                    // Process can execute
+                    for (int j = 0; j < m; j++)
+                    {
+                        work[j] += allocation[i][j];
+                    }
+
+                    safeSequence[count] = i;
+
+                    finish[i] = 1;
+                    count++;
+                    found = 1;
+                }
+            }
+        }
+
+        // No process can execute
+        if (found == 0)
+        {
+            break;
+        }
+    }
+
+    // Check safe state
+    if (count == n)
+    {
+        printf("\n====================================\n");
+        printf("SYSTEM IS IN A SAFE STATE\n");
+        printf("====================================\n");
+
+        printf("Safe Sequence: ");
+
+        for (int i = 0; i < n; i++)
+        {
+            printf("P%d", safeSequence[i]);
+
+            if (i != n - 1)
+                printf(" -> ");
+        }
+
+        printf("\n");
+    }
+    else
+    {
+        printf("\n====================================\n");
+        printf("SYSTEM IS NOT IN A SAFE STATE\n");
+        printf("DEADLOCK MAY OCCUR\n");
+        printf("====================================\n");
+    }
+
+    return 0;
+}

@@ -1,0 +1,293 @@
+#include <stdio.h>
+
+#define MAX 100
+
+// Check whether page is already present
+int isPagePresent(int frames[], int frameCount, int page)
+{
+    for (int i = 0; i < frameCount; i++)
+    {
+        if (frames[i] == page)
+            return 1;
+    }
+
+    return 0;
+}
+
+// Display frames
+void displayFrames(int frames[], int frameCount)
+{
+    for (int i = 0; i < frameCount; i++)
+    {
+        if (frames[i] == -1)
+            printf("- ");
+        else
+            printf("%d ", frames[i]);
+    }
+
+    printf("\n");
+}
+
+// --------------------------------------------------
+// FIFO Page Replacement
+// --------------------------------------------------
+int FIFO(int pages[], int n, int frameCount)
+{
+    int frames[MAX];
+    int pointer = 0;
+    int pageFaults = 0;
+
+    for (int i = 0; i < frameCount; i++)
+        frames[i] = -1;
+
+    printf("\n===== FIFO PAGE REPLACEMENT =====\n");
+
+    for (int i = 0; i < n; i++)
+    {
+        printf("Page %d: ", pages[i]);
+
+        if (!isPagePresent(frames, frameCount, pages[i]))
+        {
+            frames[pointer] = pages[i];
+
+            pointer = (pointer + 1) % frameCount;
+
+            pageFaults++;
+
+            printf("Page Fault -> ");
+        }
+        else
+        {
+            printf("Page Hit   -> ");
+        }
+
+        displayFrames(frames, frameCount);
+    }
+
+    printf("Total FIFO Page Faults = %d\n", pageFaults);
+
+    return pageFaults;
+}
+
+// --------------------------------------------------
+// LRU Page Replacement
+// --------------------------------------------------
+int LRU(int pages[], int n, int frameCount)
+{
+    int frames[MAX];
+    int recent[MAX];
+
+    int pageFaults = 0;
+    int time = 0;
+
+    for (int i = 0; i < frameCount; i++)
+    {
+        frames[i] = -1;
+        recent[i] = 0;
+    }
+
+    printf("\n===== LRU PAGE REPLACEMENT =====\n");
+
+    for (int i = 0; i < n; i++)
+    {
+        int page = pages[i];
+        int found = -1;
+
+        // Check if page is already present
+        for (int j = 0; j < frameCount; j++)
+        {
+            if (frames[j] == page)
+            {
+                found = j;
+                break;
+            }
+        }
+
+        printf("Page %d: ", page);
+
+        time++;
+
+        if (found != -1)
+        {
+            // Page hit
+            recent[found] = time;
+
+            printf("Page Hit   -> ");
+        }
+        else
+        {
+            // Page fault
+            pageFaults++;
+
+            int replaceIndex = -1;
+
+            // Find empty frame
+            for (int j = 0; j < frameCount; j++)
+            {
+                if (frames[j] == -1)
+                {
+                    replaceIndex = j;
+                    break;
+                }
+            }
+
+            // If no empty frame, find least recently used
+            if (replaceIndex == -1)
+            {
+                int minimum = recent[0];
+                replaceIndex = 0;
+
+                for (int j = 1; j < frameCount; j++)
+                {
+                    if (recent[j] < minimum)
+                    {
+                        minimum = recent[j];
+                        replaceIndex = j;
+                    }
+                }
+            }
+
+            frames[replaceIndex] = page;
+            recent[replaceIndex] = time;
+
+            printf("Page Fault -> ");
+        }
+
+        displayFrames(frames, frameCount);
+    }
+
+    printf("Total LRU Page Faults = %d\n", pageFaults);
+
+    return pageFaults;
+}
+
+// --------------------------------------------------
+// Optimal Page Replacement
+// --------------------------------------------------
+int Optimal(int pages[], int n, int frameCount)
+{
+    int frames[MAX];
+    int pageFaults = 0;
+
+    for (int i = 0; i < frameCount; i++)
+        frames[i] = -1;
+
+    printf("\n===== OPTIMAL PAGE REPLACEMENT =====\n");
+
+    for (int i = 0; i < n; i++)
+    {
+        int page = pages[i];
+
+        printf("Page %d: ", page);
+
+        // Page hit
+        if (isPagePresent(frames, frameCount, page))
+        {
+            printf("Page Hit   -> ");
+            displayFrames(frames, frameCount);
+            continue;
+        }
+
+        // Page fault
+        pageFaults++;
+
+        int replaceIndex = -1;
+
+        // Find empty frame
+        for (int j = 0; j < frameCount; j++)
+        {
+            if (frames[j] == -1)
+            {
+                replaceIndex = j;
+                break;
+            }
+        }
+
+        // If no empty frame, find page used farthest in future
+        if (replaceIndex == -1)
+        {
+            int farthest = -1;
+
+            for (int j = 0; j < frameCount; j++)
+            {
+                int k;
+
+                for (k = i + 1; k < n; k++)
+                {
+                    if (frames[j] == pages[k])
+                        break;
+                }
+
+                // Page is never used again
+                if (k == n)
+                {
+                    replaceIndex = j;
+                    break;
+                }
+
+                if (k > farthest)
+                {
+                    farthest = k;
+                    replaceIndex = j;
+                }
+            }
+        }
+
+        frames[replaceIndex] = page;
+
+        printf("Page Fault -> ");
+        displayFrames(frames, frameCount);
+    }
+
+    printf("Total Optimal Page Faults = %d\n", pageFaults);
+
+    return pageFaults;
+}
+
+// --------------------------------------------------
+// Main Function
+// --------------------------------------------------
+int main()
+{
+    int pages[MAX];
+    int n;
+    int frameCount;
+
+    printf("===== PAGE REPLACEMENT ALGORITHMS =====\n\n");
+
+    printf("Enter number of pages in reference string: ");
+    scanf("%d", &n);
+
+    printf("Enter reference string:\n");
+
+    for (int i = 0; i < n; i++)
+        scanf("%d", &pages[i]);
+
+    printf("Enter number of frames: ");
+    scanf("%d", &frameCount);
+
+    if (frameCount <= 0 || frameCount > n)
+    {
+        printf("Invalid number of frames.\n");
+        return 1;
+    }
+
+    int fifoFaults = FIFO(pages, n, frameCount);
+
+    int lruFaults = LRU(pages, n, frameCount);
+
+    int optimalFaults = Optimal(pages, n, frameCount);
+
+    // Comparison
+    printf("\n====================================\n");
+    printf("       PAGE FAULT COMPARISON\n");
+    printf("====================================\n");
+
+    printf("FIFO     : %d page faults\n", fifoFaults);
+    printf("LRU      : %d page faults\n", lruFaults);
+    printf("Optimal  : %d page faults\n", optimalFaults);
+
+    printf("====================================\n");
+
+    return 0;
+}

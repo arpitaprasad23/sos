@@ -1,0 +1,42 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+
+#define SHM_SIZE 1024
+
+int main()
+{
+    key_t key = 1234;
+    int shmid;
+    char *shared_memory;
+
+    // Create shared memory
+    shmid = shmget(key, SHM_SIZE, IPC_CREAT | 0666);
+
+    if (shmid == -1)
+    {
+        perror("shmget failed");
+        return 1;
+    }
+
+    // Attach shared memory
+    shared_memory = (char *)shmat(shmid, NULL, 0);
+
+    if (shared_memory == (char *)-1)
+    {
+        perror("shmat failed");
+        return 1;
+    }
+
+    printf("Enter message: ");
+    fgets(shared_memory, SHM_SIZE, stdin);
+
+    printf("Message written to shared memory.\n");
+
+    // Detach shared memory
+    shmdt(shared_memory);
+
+    return 0;
+}

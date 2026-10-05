@@ -1,0 +1,44 @@
+*Experiment 10*
+Auditd and journalctl 
+- sudo systemctl status auditd
+- if it's not installed then 
+- sudo apt update
+- sudo apt install auditd audispd-plugins
+- sudo systemctl start auditd (2 times)
+- sudo audsearch -ts today (today's audits)
+- sudo aureport -au ( generates authentic report)
+- sudo aureport -x (executed programs/commands)
+
+2. Journctl
+-   sudo journalctl --since today 
+- for ssh events
+- sudo journalctl -u ssh --since today
+- for authentication messages
+- sudo journalctl | grep -Ei "failed | failure | authentication|invalid|sudo"
+
+Generate your audit report
+Sudo ausearch -ts today > audit_report.txt
+Sudo aureport -au >> audit_report.txt
+Sudo aureport -x >> audit_report.txt
+Sudo journalctl -u --since today >> audit_report.txt
+Less audit_report.txt
+
+Now authentication reports
+Sudo aureport -au
+Sudo aureport -x 
+
+Analyze ssh and authentication logs
+Sudo journalctl -u ssh --since today
+Sudo journalctl | grep 
+-Ei "failed | failure | authentication|invalid|sudo"  
+- sudo ausearch -ts today > audit_report.txt
+- sudo aureport -au >> audit_report.txt
+- sudo aureport -x >> audit_report.txt
+- sudo journalctl -u ssh --since today >> audit_report.txt
+Now check that the report exists:
+
+- ls -lh audit_report.txt
+And view it:
+
+- less audit_report.txt
+Press q to exit.
