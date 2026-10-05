@@ -1,0 +1,574 @@
+EXPERIMENT 2
+Implement CPU Scheduling Algorithms (FCFS, SJF, Round Robin) and Compare Their Performance
+
+============================================================
+IMPORTANT FOR LAB
+============================================================
+This guide assumes you are using a FRESH Kali Linux PC.
+Nothing from any previous experiment is required.
+
+This experiment implements:
+1. FCFS - First Come First Serve
+2. SJF  - Shortest Job First (Non-Preemptive)
+3. Round Robin
+
+It also calculates:
+AT  = Arrival Time
+BT  = Burst Time
+CT  = Completion Time
+TAT = Turnaround Time
+WT  = Waiting Time
+
+FORMULAS:
+TAT = CT - AT
+WT  = TAT - BT
+
+
+============================================================
+STEP 1 - CREATE THE C PROGRAM
+============================================================
+
+Command:
+
+nano exp2.c
+
+Paste the following code:
+
+#include <stdio.h>
+
+struct Process {
+    int pid;
+    int arrival;
+    int burst;
+    int remaining;
+    int completion;
+    int turnaround;
+    int waiting;
+};
+
+/* ---------- FCFS ---------- */
+
+void fcfs(struct Process p[], int n) {
+    struct Process temp[20];
+    int time = 0;
+
+    for (int i = 0; i < n; i++)
+        temp[i] = p[i];
+
+    // Sort according to Arrival Time
+    for (int i = 0; i < n - 1; i++) {
+        for (int j = 0; j < n - i - 1; j++) {
+            if (temp[j].arrival > temp[j + 1].arrival) {
+                struct Process t = temp[j];
+                temp[j] = temp[j + 1];
+                temp[j + 1] = t;
+            }
+        }
+    }
+
+    for (int i = 0; i < n; i++) {
+
+        if (time < temp[i].arrival)
+            time = temp[i].arrival;
+
+        time += temp[i].burst;
+
+        temp[i].completion = time;
+        temp[i].turnaround =
+            temp[i].completion - temp[i].arrival;
+
+        temp[i].waiting =
+            temp[i].turnaround - temp[i].burst;
+    }
+
+    printf("\n========== FCFS ==========\n");
+    printf("PID\tAT\tBT\tCT\tTAT\tWT\n");
+
+    float avgWT = 0, avgTAT = 0;
+
+    for (int i = 0; i < n; i++) {
+        printf("P%d\t%d\t%d\t%d\t%d\t%d\n",
+               temp[i].pid,
+               temp[i].arrival,
+               temp[i].burst,
+               temp[i].completion,
+               temp[i].turnaround,
+               temp[i].waiting);
+
+        avgWT += temp[i].waiting;
+        avgTAT += temp[i].turnaround;
+    }
+
+    printf("Average Waiting Time    = %.2f\n", avgWT / n);
+    printf("Average Turnaround Time = %.2f\n", avgTAT / n);
+}
+
+
+/* ---------- SJF ---------- */
+
+void sjf(struct Process p[], int n) {
+
+    struct Process temp[20];
+    int completed[20] = {0};
+    int time = 0;
+    int count = 0;
+
+    for (int i = 0; i < n; i++)
+        temp[i] = p[i];
+
+    while (count < n) {
+
+        int index = -1;
+        int shortest = 9999;
+
+        // Find shortest available process
+        for (int i = 0; i < n; i++) {
+
+            if (!completed[i] &&
+                temp[i].arrival <= time &&
+                temp[i].burst < shortest) {
+
+                shortest = temp[i].burst;
+                index = i;
+            }
+        }
+
+        // If no process has arrived
+        if (index == -1) {
+            time++;
+            continue;
+        }
+
+        time += temp[index].burst;
+
+        temp[index].completion = time;
+
+        temp[index].turnaround =
+            temp[index].completion -
+            temp[index].arrival;
+
+        temp[index].waiting =
+            temp[index].turnaround -
+            temp[index].burst;
+
+        completed[index] = 1;
+        count++;
+    }
+
+    printf("\n========== SJF ==========\n");
+    printf("PID\tAT\tBT\tCT\tTAT\tWT\n");
+
+    float avgWT = 0, avgTAT = 0;
+
+    for (int i = 0; i < n; i++) {
+
+        printf("P%d\t%d\t%d\t%d\t%d\t%d\n",
+               temp[i].pid,
+               temp[i].arrival,
+               temp[i].burst,
+               temp[i].completion,
+               temp[i].turnaround,
+               temp[i].waiting);
+
+        avgWT += temp[i].waiting;
+        avgTAT += temp[i].turnaround;
+    }
+
+    printf("Average Waiting Time    = %.2f\n", avgWT / n);
+    printf("Average Turnaround Time = %.2f\n", avgTAT / n);
+}
+
+
+/* ---------- ROUND ROBIN ---------- */
+
+void roundRobin(struct Process p[], int n, int quantum) {
+
+    struct Process temp[20];
+
+    int queue[100];
+    int front = 0;
+    int rear = 0;
+
+    int visited[20] = {0};
+
+    for (int i = 0; i < n; i++) {
+        temp[i] = p[i];
+        temp[i].remaining = temp[i].burst;
+    }
+
+    int time = 0;
+    int completed = 0;
+
+    // Start with first process
+    queue[rear++] = 0;
+    visited[0] = 1;
+
+    printf("\n========== ROUND ROBIN ==========\n");
+
+    while (completed < n) {
+
+        // If queue is empty, find next process
+        if (front == rear) {
+
+            for (int i = 0; i < n; i++) {
+
+                if (!visited[i] &&
+                    temp[i].arrival <= time) {
+
+                    queue[rear++] = i;
+                    visited[i] = 1;
+                }
+            }
+
+            if (front == rear) {
+                time++;
+                continue;
+            }
+        }
+
+        int index = queue[front++];
+
+        // Execute for time quantum
+        int executionTime;
+
+        if (temp[index].remaining < quantum)
+            executionTime = temp[index].remaining;
+        else
+            executionTime = quantum;
+
+        time += executionTime;
+
+        temp[index].remaining -= executionTime;
+
+        // Add newly arrived processes
+        for (int i = 0; i < n; i++) {
+
+            if (!visited[i] &&
+                temp[i].arrival <= time) {
+
+                queue[rear++] = i;
+                visited[i] = 1;
+            }
+        }
+
+        // If process is not finished
+        if (temp[index].remaining > 0) {
+
+            queue[rear++] = index;
+
+        } else {
+
+            temp[index].completion = time;
+
+            temp[index].turnaround =
+                temp[index].completion -
+                temp[index].arrival;
+
+            temp[index].waiting =
+                temp[index].turnaround -
+                temp[index].burst;
+
+            completed++;
+        }
+    }
+
+    printf("PID\tAT\tBT\tCT\tTAT\tWT\n");
+
+    float avgWT = 0;
+    float avgTAT = 0;
+
+    for (int i = 0; i < n; i++) {
+
+        printf("P%d\t%d\t%d\t%d\t%d\t%d\n",
+               temp[i].pid,
+               temp[i].arrival,
+               temp[i].burst,
+               temp[i].completion,
+               temp[i].turnaround,
+               temp[i].waiting);
+
+        avgWT += temp[i].waiting;
+        avgTAT += temp[i].turnaround;
+    }
+
+    printf("Average Waiting Time    = %.2f\n", avgWT / n);
+    printf("Average Turnaround Time = %.2f\n", avgTAT / n);
+}
+
+
+/* ---------- MAIN ---------- */
+
+int main() {
+
+    int n;
+    int quantum;
+
+    struct Process p[20];
+
+    printf("===== CPU SCHEDULING ALGORITHMS =====\n");
+
+    printf("\nEnter number of processes: ");
+    scanf("%d", &n);
+
+    for (int i = 0; i < n; i++) {
+
+        p[i].pid = i + 1;
+
+        printf("\nEnter Arrival Time for P%d: ", i + 1);
+        scanf("%d", &p[i].arrival);
+
+        printf("Enter Burst Time for P%d: ", i + 1);
+        scanf("%d", &p[i].burst);
+    }
+
+    printf("\nEnter Time Quantum for Round Robin: ");
+    scanf("%d", &quantum);
+
+    fcfs(p, n);
+    sjf(p, n);
+    roundRobin(p, n, quantum);
+
+    return 0;
+}
+
+
+============================================================
+STEP 2 - SAVE THE FILE
+============================================================
+
+Ctrl + O
+Enter
+Ctrl + X
+
+
+============================================================
+STEP 3 - COMPILE
+============================================================
+
+gcc exp2.c -o exp2
+
+IMPORTANT:
+No output from gcc = successful compilation.
+
+If gcc is missing:
+
+sudo apt update
+sudo apt install gcc -y
+
+Then compile again:
+
+gcc exp2.c -o exp2
+
+
+============================================================
+STEP 4 - RUN
+============================================================
+
+./exp2
+
+
+============================================================
+SAFE TEST INPUT FOR LAB
+============================================================
+
+Use:
+
+Number of processes = 4
+
+P1:
+Arrival Time = 0
+Burst Time   = 5
+
+P2:
+Arrival Time = 1
+Burst Time   = 3
+
+P3:
+Arrival Time = 2
+Burst Time   = 8
+
+P4:
+Arrival Time = 3
+Burst Time   = 6
+
+Time Quantum = 2
+
+
+Enter it as:
+
+4
+0
+5
+1
+3
+2
+8
+3
+6
+2
+
+
+IMPORTANT:
+For THIS version of the Round Robin program, use P1 with Arrival Time = 0.
+
+
+============================================================
+EXPECTED / VERIFIED OUTPUT
+============================================================
+
+========== FCFS ==========
+PID     AT      BT      CT      TAT     WT
+P1      0       5       5       5       0
+P2      1       3       8       7       4
+P3      2       8       16      14      6
+P4      3       6       22      19      13
+
+Average Waiting Time    = 5.75
+Average Turnaround Time = 11.25
+
+
+========== SJF ==========
+PID     AT      BT      CT      TAT     WT
+P1      0       5       5       5       0
+P2      1       3       8       7       4
+P3      2       8       22      20      12
+P4      3       6       14      11      5
+
+Average Waiting Time    = 5.25
+Average Turnaround Time = 10.75
+
+
+========== ROUND ROBIN ==========
+PID     AT      BT      CT      TAT     WT
+P1      0       5       14      14      9
+P2      1       3       11      10      7
+P3      2       8       22      20      12
+P4      3       6       20      17      11
+
+Average Waiting Time    = 9.75
+Average Turnaround Time = 15.25
+
+
+============================================================
+WHAT EACH ALGORITHM DOES
+============================================================
+
+FCFS - FIRST COME FIRST SERVE
+Processes execute according to arrival order.
+It is non-preemptive.
+
+SJF - SHORTEST JOB FIRST
+Among processes that have already arrived, the process with the
+smallest burst time executes first.
+This implementation is non-preemptive.
+
+ROUND ROBIN
+Each ready process gets CPU time for a fixed Time Quantum.
+If the process is not completed after its quantum, it goes back
+into the ready queue.
+This is preemptive scheduling.
+
+
+============================================================
+IMPORTANT FORMULAS
+============================================================
+
+Turnaround Time:
+TAT = CT - AT
+
+Waiting Time:
+WT = TAT - BT
+
+Average Waiting Time:
+Sum of all Waiting Times / Number of Processes
+
+Average Turnaround Time:
+Sum of all Turnaround Times / Number of Processes
+
+
+============================================================
+QUICK LAB VERSION - IF YOU ARE PANICKING
+============================================================
+
+1. Open terminal
+
+2. Create file:
+nano exp2.c
+
+3. Paste code
+
+4. Save:
+Ctrl + O
+Enter
+Ctrl + X
+
+5. Compile:
+gcc exp2.c -o exp2
+
+6. Run:
+./exp2
+
+7. Input:
+
+4
+0
+5
+1
+3
+2
+8
+3
+6
+2
+
+8. You should see:
+FCFS results
+SJF results
+ROUND ROBIN results
+
+
+============================================================
+COMMON ERRORS
+============================================================
+
+ERROR: gcc: command not found
+
+Run:
+sudo apt update
+sudo apt install gcc -y
+
+
+ERROR: ./exp2: No such file or directory
+
+Compile first:
+gcc exp2.c -o exp2
+
+
+ERRORS WHILE COMPILING
+
+Open:
+nano exp2.c
+
+Check that the entire code was pasted correctly.
+
+Then:
+Ctrl + O
+Enter
+Ctrl + X
+
+Compile again.
+
+
+CHECK FILE EXISTS:
+
+ls -l exp2.c
+
+
+CHECK EXECUTABLE EXISTS:
+
+ls -l exp2
+
+
+============================================================
+EXPERIMENT 2 COMPLETE
+============================================================
