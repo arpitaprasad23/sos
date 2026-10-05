@@ -1,0 +1,535 @@
+EXPERIMENT 3
+Demonstrate Interprocess Communication (IPC) using Shared Memory and Message Queue
+
+============================================================
+IMPORTANT FOR LAB
+============================================================
+This guide assumes you are using a FRESH Kali Linux PC.
+You do NOT need anything from any previous experiment.
+
+There are TWO parts:
+A) Shared Memory
+B) Message Queue
+
+For each part:
+1. Create the programs
+2. Compile them
+3. Run the sender FIRST
+4. Run the receiver/reader SECOND
+
+
+============================================================
+PART A - IPC USING SHARED MEMORY
+============================================================
+
+STEP 1 - CREATE SHARED MEMORY SENDER
+
+Command:
+nano shm_sender.c
+
+Paste:
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+
+#define SHM_SIZE 1024
+
+int main()
+{
+    key_t key = 1234;
+    int shmid;
+    char *shared_memory;
+
+    // Create shared memory
+    shmid = shmget(key, SHM_SIZE, IPC_CREAT | 0666);
+
+    if (shmid == -1)
+    {
+        perror("shmget failed");
+        return 1;
+    }
+
+    // Attach shared memory
+    shared_memory = (char *)shmat(shmid, NULL, 0);
+
+    if (shared_memory == (char *)-1)
+    {
+        perror("shmat failed");
+        return 1;
+    }
+
+    printf("Enter message: ");
+    fgets(shared_memory, SHM_SIZE, stdin);
+
+    printf("Message written to shared memory.\n");
+
+    // Detach shared memory
+    shmdt(shared_memory);
+
+    return 0;
+}
+
+SAVE:
+Ctrl + O
+Enter
+Ctrl + X
+
+
+------------------------------------------------------------
+STEP 2 - CREATE SHARED MEMORY READER
+------------------------------------------------------------
+
+Command:
+nano shm_reader.c
+
+Paste:
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+
+#define SHM_SIZE 1024
+
+int main()
+{
+    key_t key = 1234;
+    int shmid;
+    char *shared_memory;
+
+    // Access existing shared memory
+    shmid = shmget(key, SHM_SIZE, 0666);
+
+    if (shmid == -1)
+    {
+        perror("shmget failed");
+        return 1;
+    }
+
+    // Attach shared memory
+    shared_memory = (char *)shmat(shmid, NULL, 0);
+
+    if (shared_memory == (char *)-1)
+    {
+        perror("shmat failed");
+        return 1;
+    }
+
+    printf("Message received from shared memory:\n");
+    printf("%s", shared_memory);
+
+    // Detach shared memory
+    shmdt(shared_memory);
+
+    // Remove shared memory
+    shmctl(shmid, IPC_RMID, NULL);
+
+    return 0;
+}
+
+SAVE:
+Ctrl + O
+Enter
+Ctrl + X
+
+
+------------------------------------------------------------
+STEP 3 - COMPILE BOTH PROGRAMS
+------------------------------------------------------------
+
+gcc shm_sender.c -o shm_sender
+gcc shm_reader.c -o shm_reader
+
+IMPORTANT:
+If gcc gives no output/error, compilation was successful.
+
+If gcc is not installed:
+sudo apt update
+sudo apt install gcc -y
+
+Then compile again.
+
+
+------------------------------------------------------------
+STEP 4 - RUN SHARED MEMORY SENDER FIRST
+------------------------------------------------------------
+
+./shm_sender
+
+When asked:
+Enter message:
+
+Type:
+Hello from shared memory
+
+Expected:
+
+Enter message: Hello from shared memory
+Message written to shared memory.
+
+
+------------------------------------------------------------
+STEP 5 - RUN SHARED MEMORY READER SECOND
+------------------------------------------------------------
+
+./shm_reader
+
+Expected:
+
+Message received from shared memory:
+Hello from shared memory
+
+
+============================================================
+PART B - IPC USING MESSAGE QUEUE
+============================================================
+
+STEP 1 - CREATE MESSAGE QUEUE SENDER
+
+Command:
+nano msg_sender.c
+
+Paste:
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/ipc.h>
+#include <sys/msg.h>
+
+struct message
+{
+    long message_type;
+    char message_text[200];
+};
+
+int main()
+{
+    key_t key = 5678;
+    int msgid;
+
+    struct message msg;
+
+    // Create message queue
+    msgid = msgget(key, IPC_CREAT | 0666);
+
+    if (msgid == -1)
+    {
+        perror("msgget failed");
+        return 1;
+    }
+
+    msg.message_type = 1;
+
+    printf("Enter message: ");
+    fgets(msg.message_text, sizeof(msg.message_text), stdin);
+
+    // Send message
+    if (msgsnd(msgid,
+               &msg,
+               strlen(msg.message_text) + 1,
+               0) == -1)
+    {
+        perror("msgsnd failed");
+        return 1;
+    }
+
+    printf("Message sent successfully.\n");
+
+    return 0;
+}
+
+SAVE:
+Ctrl + O
+Enter
+Ctrl + X
+
+
+------------------------------------------------------------
+STEP 2 - CREATE MESSAGE QUEUE RECEIVER
+------------------------------------------------------------
+
+Command:
+nano msg_receiver.c
+
+Paste:
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/ipc.h>
+#include <sys/msg.h>
+
+struct message
+{
+    long message_type;
+    char message_text[200];
+};
+
+int main()
+{
+    key_t key = 5678;
+    int msgid;
+
+    struct message msg;
+
+    // Access message queue
+    msgid = msgget(key, 0666);
+
+    if (msgid == -1)
+    {
+        perror("msgget failed");
+        return 1;
+    }
+
+    // Receive message
+    if (msgrcv(msgid,
+               &msg,
+               sizeof(msg.message_text),
+               1,
+               0) == -1)
+    {
+        perror("msgrcv failed");
+        return 1;
+    }
+
+    printf("Message received from message queue:\n");
+    printf("%s", msg.message_text);
+
+    // Remove message queue
+    msgctl(msgid, IPC_RMID, NULL);
+
+    return 0;
+}
+
+SAVE:
+Ctrl + O
+Enter
+Ctrl + X
+
+
+------------------------------------------------------------
+STEP 3 - COMPILE BOTH PROGRAMS
+------------------------------------------------------------
+
+gcc msg_sender.c -o msg_sender
+gcc msg_receiver.c -o msg_receiver
+
+No output from gcc = successful compilation.
+
+
+------------------------------------------------------------
+STEP 4 - RUN MESSAGE QUEUE SENDER FIRST
+------------------------------------------------------------
+
+./msg_sender
+
+When asked:
+Enter message:
+
+Type:
+Hello from message queue
+
+Expected:
+
+Enter message: Hello from message queue
+Message sent successfully.
+
+
+------------------------------------------------------------
+STEP 5 - RUN MESSAGE QUEUE RECEIVER SECOND
+------------------------------------------------------------
+
+./msg_receiver
+
+Expected:
+
+Message received from message queue:
+Hello from message queue
+
+
+============================================================
+QUICK LAB ORDER - IF YOU ARE PANICKING
+============================================================
+
+SHARED MEMORY:
+
+nano shm_sender.c
+[Paste sender code, save]
+
+nano shm_reader.c
+[Paste reader code, save]
+
+gcc shm_sender.c -o shm_sender
+gcc shm_reader.c -o shm_reader
+
+./shm_sender
+Type: Hello from shared memory
+
+./shm_reader
+
+
+MESSAGE QUEUE:
+
+nano msg_sender.c
+[Paste sender code, save]
+
+nano msg_receiver.c
+[Paste receiver code, save]
+
+gcc msg_sender.c -o msg_sender
+gcc msg_receiver.c -o msg_receiver
+
+./msg_sender
+Type: Hello from message queue
+
+./msg_receiver
+
+
+============================================================
+IMPORTANT EXECUTION ORDER
+============================================================
+
+Shared Memory:
+./shm_sender
+THEN
+./shm_reader
+
+Message Queue:
+./msg_sender
+THEN
+./msg_receiver
+
+Do NOT run the reader/receiver first on a fresh PC because the sender
+creates the IPC resource.
+
+
+============================================================
+USEFUL CHECK COMMANDS
+============================================================
+
+Show shared memory segments:
+ipcs -m
+
+Show message queues:
+ipcs -q
+
+Show all System V IPC resources:
+ipcs
+
+
+============================================================
+COMMON ERRORS
+============================================================
+
+1) "gcc: command not found"
+
+Run:
+sudo apt update
+sudo apt install gcc -y
+
+
+2) shmget failed
+
+Make sure you run:
+./shm_sender
+
+BEFORE:
+./shm_reader
+
+
+3) msgget failed
+
+Make sure you run:
+./msg_sender
+
+BEFORE:
+./msg_receiver
+
+
+4) "No such file or directory" when running ./program
+
+Compile it first.
+
+Example:
+gcc shm_sender.c -o shm_sender
+
+
+5) Compilation error after copying code
+
+Open the file:
+nano filename.c
+
+Check that the entire code was pasted correctly.
+Save again using:
+Ctrl + O
+Enter
+Ctrl + X
+
+
+6) Want to verify the files exist?
+
+ls -l shm_sender.c shm_reader.c msg_sender.c msg_receiver.c
+
+
+============================================================
+WHAT THE EXPERIMENT DEMONSTRATES
+============================================================
+
+SHARED MEMORY:
+Two processes communicate through a common memory segment.
+
+Important functions:
+shmget()  - creates/accesses shared memory
+shmat()   - attaches shared memory
+shmdt()   - detaches shared memory
+shmctl()  - controls/removes shared memory
+
+Key used in this program:
+1234
+
+
+MESSAGE QUEUE:
+Processes communicate by sending and receiving messages through a queue.
+
+Important functions:
+msgget()  - creates/accesses message queue
+msgsnd()  - sends message
+msgrcv()  - receives message
+msgctl()  - controls/removes message queue
+
+Key used in this program:
+5678
+
+
+============================================================
+SUCCESSFUL OUTPUT YOU ALREADY VERIFIED
+============================================================
+
+SHARED MEMORY:
+
+./shm_sender
+Enter message: Hello from shared memory
+Message written to shared memory.
+
+./shm_reader
+Message received from shared memory:
+Hello from shared memory
+
+
+MESSAGE QUEUE:
+
+./msg_sender
+Enter message: Hello from message queue
+Message sent successfully.
+
+./msg_receiver
+Message received from message queue:
+Hello from message queue
+
+
+============================================================
+EXPERIMENT 3 COMPLETE
+============================================================
