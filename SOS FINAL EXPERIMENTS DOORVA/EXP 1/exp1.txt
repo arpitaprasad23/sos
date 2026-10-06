@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <fcntl.h>
+#include <fctl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 
@@ -91,7 +91,7 @@ int main()
         printf("Child PID  : %d\n", pid);
 
         // wait() - wait for child process
-        wait(NULL);
+        wait();
 
         printf("Child process completed.\n");
     }
