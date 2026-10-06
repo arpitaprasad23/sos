@@ -3,7 +3,7 @@
 #define MAX 100
 
 // Check whether page is already present
-int isPagePresent(int frames[], int frameCount, int page)
+int ispagepresent(int frames[], int frameCount, int page)
 {
     for (int i = 0; i < frameCount; i++)
     {
@@ -15,7 +15,7 @@ int isPagePresent(int frames[], int frameCount, int page)
 }
 
 // Display frames
-void displayFrames(int frames[], int frameCount)
+void displayframes(int frames[], int frameCount)
 {
     for (int i = 0; i < frameCount; i++)
     {
@@ -31,7 +31,7 @@ void displayFrames(int frames[], int frameCount)
 // --------------------------------------------------
 // FIFO Page Replacement
 // --------------------------------------------------
-int FIFO(int pages[], int n, int frameCount)
+int fifo(int pages[], int n, int frameCount)
 {
     int frames[MAX];
     int pointer = 0;
