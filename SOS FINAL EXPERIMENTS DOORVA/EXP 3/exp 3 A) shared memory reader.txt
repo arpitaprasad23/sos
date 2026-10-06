@@ -25,7 +25,7 @@ int main()
 
     if (shared_memory == (char *)-1)
     {
-        perror("shmat failed");
+        peror("shmat failed");
         return 1;
     }
 
