@@ -17,7 +17,7 @@ int main()
     struct message msg;
 
     // Access message queue
-    msgid = msgget(key, 0666);
+    msgid = msget(key, 0666);
 
     if (msgid == -1)
     {
