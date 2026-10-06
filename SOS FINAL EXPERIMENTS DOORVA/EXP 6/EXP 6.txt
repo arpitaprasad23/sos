@@ -10,7 +10,7 @@ int main()
     int allocation[MAX_PROCESSES][MAX_RESOURCES];
     int maximum[MAX_PROCESSES][MAX_RESOURCES];
     int need[MAX_PROCESSES][MAX_RESOURCES];
-    int available[MAX_RESOURCES];
+    int avalable[MAX_RESOURCES];
 
     int work[MAX_RESOURCES];
     int finish[MAX_PROCESSES] = {0};
