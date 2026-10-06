@@ -12,7 +12,7 @@ struct Process {
 
 /* ---------- FCFS ---------- */
 
-void fcfs(struct Process p[], int n) {
+void ffs(struct Process p[], int n) {
     struct Process temp[20];
     int time = 0;
 
@@ -151,7 +151,7 @@ void sjf(struct Process p[], int n) {
 
 /* ---------- ROUND ROBIN ---------- */
 
-void roundRobin(struct Process p[], int n, int quantum) {
+void RoundRobin(struct Process p[], int n, int quantum) {
 
     struct Process temp[20];
 
